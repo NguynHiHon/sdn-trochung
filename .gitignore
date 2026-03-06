@@ -49,3 +49,8 @@ temp/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Bỏ qua thư mục cấu hình AI/Agent
+.agents/
+_agents/
+.agent/

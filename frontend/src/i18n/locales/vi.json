@@ -1,0 +1,132 @@
+{
+    "header": {
+        "bookNow": "Đặt Tour",
+        "login": "Đăng Nhập",
+        "tours": "Tours",
+        "destinations": "Điểm Đến",
+        "aboutUs": "Về Chúng Tôi",
+        "media": "Truyền Thông"
+    },
+    "home": {
+        "heroTitle": "Hành Trình Thám Hiểm Hang Động Đẳng Cấp Quốc Tế",
+        "heroSubtitle": "Khám phá những hang động lớn nhất thế giới tại Vườn Quốc Gia Phong Nha - Kẻ Bàng, Việt Nam.",
+        "findYourTour": "Tìm Tour Của Bạn",
+        "watchVideo": "Xem Video",
+        "categories": {
+            "all": "Tất cả",
+            "multiday": "Tour dài ngày",
+            "overnight": "Tour qua đêm",
+            "daytours": "Tour trong ngày",
+            "family": "Tour gia đình"
+        }
+    },
+    "tours": {
+        "tulan": {
+            "name": "Khám Phá Tú Làn",
+            "tags": "3 NGÀY · CẤP ĐỘ 2 · DỄ",
+            "desc": "Chuyến đi 2 ngày thú vị, nơi bạn có cơ hội bơi qua một số hang động sông ngầm hàng đầu Việt Nam, nằm sâu trong Hệ thống Hang động Tú Làn tuyệt đẹp.",
+            "price": "7,700,000 VNĐ/khách"
+        },
+        "hangtien": {
+            "name": "Chinh Phục Hang Tiên",
+            "tags": "3 NGÀY · CẤP ĐỘ 2 · DỄ",
+            "desc": "Chuyến tham quan mức độ vừa phải, bạn sẽ đi bộ xuyên rừng, bơi lội tại hồ nước tự nhiên và cắm trại qua đêm, khám phá hang động khô lớn nhất hệ thống Tú Làn.",
+            "price": "8,000,000 VNĐ/khách"
+        },
+        "sondoong": {
+            "name": "Thám Hiểm Sơn Đoòng",
+            "tags": "6 NGÀY · CẤP ĐỘ 6 · KHÓ",
+            "desc": "Sơn Đoòng là hang động lớn nhất Trái Đất, có hệ sinh thái riêng và được điểm xuyết bởi những khối thạch nhũ khổng lồ. Đây thực sự là chuyến phiêu lưu để đời.",
+            "price": "79,500,000 VNĐ/khách"
+        },
+        "hangen": {
+            "name": "Khám Phá Hang Én",
+            "tags": "2 NGÀY · CẤP ĐỘ 3 · VỪA",
+            "desc": "Băng qua những cánh rừng rậm hoang sơ, thăm bản làng người dân tộc thiểu số và cắm trại trên bãi cát tuyệt đẹp bên trong hang động lớn thứ ba thế giới.",
+            "price": "8,500,000 VNĐ/khách"
+        }
+    },
+    "coreValues": {
+        "title": "Vì sao chọn Oxalis?",
+        "safety": {
+            "title": "An Toàn Là Trên Hết",
+            "desc": "Tiêu chuẩn an toàn quốc tế cùng đội ngũ hướng dẫn viên chuyên nghiệp, được đào tạo bài bản."
+        },
+        "conservation": {
+            "title": "Bảo Tồn Thiên Nhiên",
+            "desc": "Cam kết bảo tồn hệ sinh thái mong manh của các hang động."
+        },
+        "community": {
+            "title": "Cộng Đồng Địa Phương",
+            "desc": "Tạo việc làm bền vững và hỗ trợ phát triển kinh tế địa phương."
+        },
+        "experience": {
+            "title": "Trải Nghiệm Độc Đáo",
+            "desc": "Đặc quyền khám phá những hang động kỳ vĩ nhất trên thế giới."
+        }
+    },
+    "testimonials": {
+        "title": "Khách Hàng Nói Gì Về Chúng Tôi",
+        "reviews": {
+            "1": {
+                "text": "\"Chuyến thám hiểm Sơn Đoòng đã thay đổi cuộc đời tôi. Kích thước khổng lồ của hang động khó có thể tưởng tượng nếu không trực tiếp đứng bên trong. Đội ngũ tổ chức vô cùng chuyên nghiệp.\"",
+                "author": "Sarah Jenkins",
+                "role": "Nhiếp Ảnh Gia"
+            },
+            "2": {
+                "text": "\"Chúng tôi đã tham gia khám phá Tú Làn và nó là sự kết hợp hoàn hảo giữa đi bộ xuyên rừng, bơi lội và cắm trại. Thức ăn thợ rừng nấu là ngon nhất chúng tôi từng ăn ở Việt Nam!\"",
+                "author": "Mark Davidson",
+                "role": "Du khách Anh"
+            }
+        }
+    },
+    "mediaSection": {
+        "title": "Oxalis trên truyền thông quốc tế",
+        "desc": "Trong nhiều năm qua, Oxalis luôn cống hiến để đưa vẻ đẹp ngoạn mục của hệ thống hang động Phong Nha - Kẻ Bàng và Tú Làn đến với thế giới. Chúng tôi tự hào khi những nỗ lực chia sẻ kỳ quan thiên nhiên Việt Nam đã được các tạp chí du lịch quốc tế hàng đầu công nhận."
+    },
+    "contact": {
+        "title": "Bạn Đã Sẵn Sàng Thám Hiểm?",
+        "subtitle": "Liên hệ với chuyên gia du lịch của chúng tôi để lên lịch trình cho bạn.",
+        "name": "Họ và Tên",
+        "email": "Địa chỉ Email",
+        "message": "Nội dung tin nhắn",
+        "send": "Gửi Tin Nhắn",
+        "successMessage": "Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất."
+    },
+    "footer": {
+        "about": "Oxalis Adventure là đơn vị duy nhất tổ chức tour thám hiểm hang Sơn Đoòng - hang động lớn nhất thế giới, và chuyên về các tour trekking rừng rậm và khám phá hang động.",
+        "contact": "Liên Hệ Mọi Lúc",
+        "address": "Phong Nha, Bố Trạch, Quảng Bình, Việt Nam",
+        "phone": "+84 919 900 357",
+        "emailUs": "contact@oxalisadventure.com",
+        "quickLinks": "Liên Kết Nhanh",
+        "rights": "© 2024 Oxalis Adventure. Mã số Doanh nghiệp: 3100828552."
+    },
+    "tourDetail": {
+        "sections": {
+            "highlights": "Điểm nổi bật",
+            "itinerary": "Lịch trình",
+            "photos": "Hình ảnh",
+            "weather": "Thời tiết và Khí hậu",
+            "adventureLevel": "Mức độ mạo hiểm",
+            "fitness": "Yêu cầu về thể lực",
+            "safety": "An toàn trong tour",
+            "communication": "Thông tin liên lạc",
+            "whatToBring": "Cần mang theo gì",
+            "swimming": "Bơi tại khu cắm trại",
+            "toilet": "Khu vệ sinh",
+            "directions": "Hướng dẫn đến Phong Nha",
+            "bookingProcess": "Quy trình đặt tour",
+            "priceDates": "Giá tour và Ngày khởi hành",
+            "cancellation": "Điều kiện hủy tour",
+            "priceIncludes": "Giá tour bao gồm",
+            "faqs": "Câu hỏi thường gặp"
+        },
+        "bookNow": "Đặt ngay",
+        "level": "Cấp độ mạo hiểm:",
+        "age": "Độ tuổi 16-70 tuổi",
+        "groupSize": "Nhóm: 10 khách",
+        "tourType": "Loại tour: Ghép đoàn",
+        "operation": "Khởi hành: Quanh năm"
+    }
+}

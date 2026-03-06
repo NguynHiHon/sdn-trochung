@@ -1,0 +1,30 @@
+
+> frontend@0.0.0 build
+> vite build
+
+[33mYou are using Node.js 22.11.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.[39m
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 1024 modules transformed.
+[31m✗[39m Build failed in 2.19s
+[31merror during build:
+[31msrc/components/home/TourGridSection.jsx (6:4): "Grid2" is not exported by "node_modules/@mui/material/esm/index.js", imported by "src/components/home/TourGridSection.jsx".[31m
+file: [36mD:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/src/components/home/TourGridSection.jsx:6:4[31m
+[33m
+4:     Container,
+5:     Typography,
+6:     Grid2,
+       ^
+7:     Card,
+8:     CardMedia,
+[31m
+    at getRollupError (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at Module.error (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17040:16)
+    at Module.traceVariable (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17452:29)
+    at ModuleScope.findVariable (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:15070:39)
+    at FunctionScope.findVariable (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at Identifier.bind (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5447:40)
+    at CallExpression.bind (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:2825:28)
+    at CallExpression.bind (file:///D:/Download/SDN302/DuAnSDN/SDN-oxalis-AT/frontend/node_modules/rollup/dist/es/shared/node-entry.js:12179:15)[39m

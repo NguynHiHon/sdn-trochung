@@ -1,0 +1,132 @@
+{
+    "header": {
+        "bookNow": "Book Now",
+        "login": "Login",
+        "tours": "Tours",
+        "destinations": "Destinations",
+        "aboutUs": "About Us",
+        "media": "Media"
+    },
+    "home": {
+        "heroTitle": "World-Class Cave Expeditions",
+        "heroSubtitle": "Explore the world's largest caves in Phong Nha - Ke Bang National Park, Vietnam",
+        "findYourTour": "Find Your Tour",
+        "watchVideo": "Watch Video",
+        "categories": {
+            "all": "All",
+            "multiday": "Multi-day tours",
+            "overnight": "Overnight tours",
+            "daytours": "Day tours",
+            "family": "Family tours"
+        }
+    },
+    "tours": {
+        "tulan": {
+            "name": "Tu Lan Encounter",
+            "tags": "3 DAY · LEVEL 2 · EASY",
+            "desc": "A very enjoyable 2-Day tour where you get to take a plunge into some of Vietnam's top river caves, based inside the mesmerizing Tu Lan Cave System.",
+            "price": "VND 7,700,000/pax"
+        },
+        "hangtien": {
+            "name": "Hang Tien Endeavour",
+            "tags": "3 DAY · LEVEL 2 · EASY",
+            "desc": "A moderate tour where you will trek, enjoy a natural pool and camp overnight, while exploring the largest dry cave of the Tu Lan Cave System - Hang Tien.",
+            "price": "VND 8,000,000/pax"
+        },
+        "sondoong": {
+            "name": "Son Doong Expedition",
+            "tags": "6 DAY · LEVEL 6 · HARD",
+            "desc": "Son Doong Cave is the largest cave on Earth, with its own eco-system and is embellished with gigantic formations. The Son Doong Expedition is truly the adventure of a lifetime.",
+            "price": "VND 79,500,000/pax"
+        },
+        "hangen": {
+            "name": "Hang En Adventure",
+            "tags": "2 DAY · LEVEL 3 · MODERATE",
+            "desc": "Trek through pristine jungle, visit a minority village, and camp on a sandy beach inside the third largest cave in the world.",
+            "price": "VND 8,500,000/pax"
+        }
+    },
+    "coreValues": {
+        "title": "Why Choose Oxalis?",
+        "safety": {
+            "title": "Safety First",
+            "desc": "International safety standards with highly trained professional guides."
+        },
+        "conservation": {
+            "title": "Conservation",
+            "desc": "Committed to preserving the delicate ecosystems of the caves."
+        },
+        "community": {
+            "title": "Local Community",
+            "desc": "Providing sustainable jobs and supporting local development."
+        },
+        "experience": {
+            "title": "Unique Experience",
+            "desc": "Exclusive access to the most spectacular caves in the world."
+        }
+    },
+    "testimonials": {
+        "title": "What Our Explorers Say",
+        "reviews": {
+            "1": {
+                "text": "\"The Son Doong Expedition was life-changing. The sheer scale of the caves is incomprehensible until you are standing inside them. The organizing team was incredibly professional.\"",
+                "author": "Sarah Jenkins",
+                "role": "Adventure Photographer"
+            },
+            "2": {
+                "text": "\"We did the Tu Lan Encounter and it was the perfect mix of trekking, swimming, and caving. The food prepared by the porters was the best we had in Vietnam!\"",
+                "author": "Mark Davidson",
+                "role": "Traveler from UK"
+            }
+        }
+    },
+    "mediaSection": {
+        "title": "Oxalis on global media",
+        "desc": "For years, Oxalis has been dedicated to showcasing the breathtaking cave systems of Phong Nha-Ke Bang and Tu Lan to a global audience. We are proud that our commitment to sharing Vietnam's natural wonders has been recognized and featured by leading international travel publications."
+    },
+    "contact": {
+        "title": "Ready for an Adventure?",
+        "subtitle": "Get in touch with our travel experts to plan your expedition.",
+        "name": "Full Name",
+        "email": "Email Address",
+        "message": "Your Message",
+        "send": "Send Message",
+        "successMessage": "Thank you for reaching out! We will contact you soon."
+    },
+    "footer": {
+        "about": "Oxalis Adventure is the sole operator of tours to Son Doong Cave, the world's largest cave. We specialize in providing jungle trek and cave exploration tours.",
+        "contact": "Contact Us",
+        "address": "Phong Nha, Bo Trach, Quang Binh, Vietnam",
+        "phone": "+84 919 900 357",
+        "emailUs": "contact@oxalisadventure.com",
+        "quickLinks": "Quick Links",
+        "rights": "© 2024 Oxalis Adventure. All rights reserved."
+    },
+    "tourDetail": {
+        "sections": {
+            "highlights": "Highlights",
+            "itinerary": "Itinerary",
+            "photos": "Photos",
+            "weather": "Weather and Climate",
+            "adventureLevel": "Adventure level on tour",
+            "fitness": "Fitness requirements",
+            "safety": "Safety on tour",
+            "communication": "Communication on tour",
+            "whatToBring": "What to bring",
+            "swimming": "Swimming at campsites",
+            "toilet": "Toilet at the campsites",
+            "directions": "Directions to Phong Nha",
+            "bookingProcess": "Tour booking process",
+            "priceDates": "Tour price and available dates",
+            "cancellation": "Terms of tour cancellation",
+            "priceIncludes": "Price includes",
+            "faqs": "FAQs"
+        },
+        "bookNow": "Book now",
+        "level": "Adventure Level:",
+        "age": "Age 16-70 years old",
+        "groupSize": "Group size: 10 customers",
+        "tourType": "Tour type: Join-in",
+        "operation": "Operation: Year-round"
+    }
+}
