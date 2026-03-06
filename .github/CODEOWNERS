@@ -1,0 +1,5 @@
+# CODEOWNERS - Quy định người duyệt code cho toàn bộ repository
+# NguynHiHon là chủ sở hữu của tất cả các file trong repository này.
+# Mọi Pull Request đều phải được NguynHiHon xem xét và phê duyệt.
+
+* @NguynHiHon
