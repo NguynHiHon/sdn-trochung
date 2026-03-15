@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 
 import Home from './pages/Home'
 import TourDetailPage from './pages/TourDetailPage'
+import TourBookingPage from './pages/TourBookingPage'
 import MainLayout from './components/layout/MainLayout'
 
 // Setup axios interceptors once
@@ -27,6 +28,7 @@ function App() {
           <Route path='/profile' element={<ProfilePage />} />
           <Route element={<MainLayout />}>
             <Route path='/tour/:id' element={<TourDetailPage />} />
+            <Route path='/tour/:id/book' element={<TourBookingPage />} />
             <Route path='/' element={<Home />} />
           </Route>
         </Routes>

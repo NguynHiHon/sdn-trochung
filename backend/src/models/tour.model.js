@@ -60,6 +60,15 @@ const tourSchema = new Schema(
         },
         ageMax: {
             type: Number
+        },
+        bookingConditions: {
+            type: String
+        },
+        healthRequirements: {
+            type: String
+        },
+        cancellationPolicy: {
+            type: String
         }
     },
     {
