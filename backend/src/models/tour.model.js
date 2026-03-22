@@ -2,12 +2,24 @@ const mongoose = require('mongoose');
 
 const Schema = mongoose.Schema;
 
+// Sub-schema cho trường song ngữ
+const bilingualField = {
+    vi: { type: String, default: '' },
+    en: { type: String, default: '' }
+};
+
+// Sub-schema cho lịch trình từng ngày
+const itineraryDaySchema = new Schema({
+    dayNumber: { type: Number, required: true },
+    title: bilingualField,
+    content: bilingualField // Có thể chứa HTML
+}, { _id: false });
+
 const tourSchema = new Schema(
     {
         name: {
-            type: String,
-            required: true,
-            trim: true,
+            vi: { type: String, required: true, trim: true },
+            en: { type: String, required: true, trim: true }
         },
         code: {
             type: String,
@@ -21,9 +33,7 @@ const tourSchema = new Schema(
             unique: true,
             trim: true,
         },
-        description: {
-            type: String,
-        },
+        description: bilingualField,
         priceVND: {
             type: Number,
             required: true,
@@ -40,18 +50,33 @@ const tourSchema = new Schema(
             min: 1,
             max: 6,
             required: true,
+            index: true,
         },
         categoryId: {
             type: Schema.Types.ObjectId,
             ref: 'Category',
+            index: true,
         },
         caveId: {
             type: Schema.Types.ObjectId,
             ref: 'Cave',
+            index: true,
         },
-        thumbnailUrl: {
+        tourType: {
             type: String,
+            enum: ['multiday', 'overnight', 'daytour', 'family'],
+            default: 'multiday',
+            index: true,
         },
+        // Liên kết với Media Library
+        thumbnail: {
+            type: Schema.Types.ObjectId,
+            ref: 'Media',
+        },
+        gallery: [{
+            type: Schema.Types.ObjectId,
+            ref: 'Media',
+        }],
         groupSize: {
             type: Number
         },
@@ -61,14 +86,54 @@ const tourSchema = new Schema(
         ageMax: {
             type: Number
         },
-        bookingConditions: {
-            type: String
+        // Lịch trình chi tiết theo từng ngày
+        itinerary: [itineraryDaySchema],
+        // Danh sách đồ bảo hộ/trang bị cung cấp (song ngữ)
+        providedEquipment: [bilingualField],
+        // Các điều kiện & chính sách (song ngữ)
+        bookingConditions: bilingualField,
+        healthRequirements: bilingualField, // Tương đương Fitness requirements
+        cancellationPolicy: bilingualField,
+
+        // --- CÁC TRƯỜNG THÔNG TIN CHI TIẾT MỚI ---
+        banner: {
+            type: Schema.Types.ObjectId,
+            ref: 'Media',
         },
-        healthRequirements: {
-            type: String
+        highlights: bilingualField,
+        weatherAndClimate: bilingualField,
+        adventureLevelDescription: bilingualField,
+        safetyOnTour: bilingualField,
+        communicationOnTour: bilingualField,
+        whatToBring: bilingualField,
+        swimmingAtCampsites: bilingualField,
+        toiletAtCampsites: bilingualField,
+        directionsToPhongNha: bilingualField,
+        tourBookingProcess: bilingualField,
+        priceIncludes: bilingualField,
+        faqs: [
+            {
+                question: bilingualField,
+                answer: bilingualField,
+                _id: false
+            }
+        ],
+
+        // Trạng thái & nổi bật
+        status: {
+            type: String,
+            enum: ['draft', 'published', 'archived'],
+            default: 'draft',
+            index: true,
         },
-        cancellationPolicy: {
-            type: String
+        isFeatured: {
+            type: Boolean,
+            default: false,
+        },
+        // SEO
+        seo: {
+            metaTitle: bilingualField,
+            metaDescription: bilingualField,
         }
     },
     {

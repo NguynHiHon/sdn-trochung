@@ -4,29 +4,30 @@ const bookingSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        // Optional: Allow guest bookings
     },
     tourId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Tour',
         required: true
     },
+    scheduleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Schedule',
+        required: true
+    },
     bookingCode: {
         type: String,
         unique: true
     },
-    date: {
-        type: String, // format YYYY-MM-DD
-        required: true
-    },
-    numberOfGuests: {
+    totalGuests: {
         type: Number,
         required: true,
         min: 1
     },
     status: {
         type: String,
-        enum: ['HOLD', 'CONFIRMED', 'CANCELLED'],
+        enum: ['HOLD', 'CONFIRMED', 'CANCELLED', 'COMPLETED'],
         default: 'HOLD'
     },
     totalPrice: {
@@ -39,18 +40,25 @@ const bookingSchema = new mongoose.Schema({
             return this.status === 'HOLD';
         }
     },
-    guestInfo: {
-        name: { type: String, required: true },
+    contactInfo: {
+        fullName: { type: String, required: true },
         email: { type: String, required: true },
         phone: { type: String, required: true },
+        contactMethod: { 
+            type: String, 
+            enum: ['Zalo', 'Viber', 'Email', 'WhatsApp', 'Phone', 'None'], 
+            default: 'Zalo' 
+        },
+        address: { type: String },
         specialRequest: { type: String }
     }
 }, {
     timestamps: true
 });
 
-// Index to quickly find bookings for a tour on a date
-bookingSchema.index({ tourId: 1, date: 1 });
+// Index to quickly find bookings for a schedule or tour
+bookingSchema.index({ scheduleId: 1 });
+bookingSchema.index({ tourId: 1 });
 
 // Index for background job to find expired holds
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });

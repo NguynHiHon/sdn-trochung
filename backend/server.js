@@ -6,9 +6,10 @@ const router = require('./src/routers/index');
 const cookieparser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
+const socketService = require('./src/services/socketService');
 const bookingService = require('./src/services/bookingService');
 const cron = require('node-cron');
-
+const morgan = require('morgan');
 dotenv.config();
 
 const app = express();
@@ -20,17 +21,11 @@ const io = new Server(server, {
     }
 });
 
-bookingService.setIO(io);
+// Khởi tạo socketService (quản lý tập trung)
+socketService.init(io);
 
-io.on('connection', (socket) => {
-    socket.on('joinTourRoom', (tourId) => {
-        socket.join(`tour_${tourId}`);
-    });
-    
-    socket.on('leaveTourRoom', (tourId) => {
-        socket.leave(`tour_${tourId}`);
-    });
-});
+// Truyền io cho bookingService (backward compat)
+bookingService.setIO(io);
 
 // Run every 5 minutes
 cron.schedule('*/5 * * * *', () => {
@@ -45,6 +40,9 @@ app.use(cors({
 
 app.use(cookieparser());
 app.use(express.json());
+app.use(morgan('dev'));
+
+
 app.use('/api', router);
 
 databaseconfig();

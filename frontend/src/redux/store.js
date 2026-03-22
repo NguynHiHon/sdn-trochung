@@ -10,9 +10,9 @@ import {
     REGISTER,
 } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
-import authReducer from './clices/authSlice';
-import tokenReducer from './clices/tokenSlice';
-import userReducer from './clices/userSlice';
+import authReducer from './slices/authSlice';
+import tokenReducer from './slices/tokenSlice';
+import userReducer from './slices/userSlice';
 
 // Cấu hình persist - CHỈ PERSIST AUTH (user info + login status)
 const authPersistConfig = {

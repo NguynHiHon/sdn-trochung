@@ -7,8 +7,8 @@ import {
     registerSuccess,
     registerFailure,
     logout
-} from '../redux/clices/authSlice';
-import { setAccessToken, clearToken } from '../redux/clices/tokenSlice';
+} from '../redux/slices/authSlice';
+import { setAccessToken, clearToken } from '../redux/slices/tokenSlice';
 
 // Sign In
 export const signInUser = async (user, dispatch, navigate) => {
@@ -26,7 +26,9 @@ export const signInUser = async (user, dispatch, navigate) => {
 
         // Điều hướng theo role
         if (res.data.user.role === 'admin') {
-            navigate("/admin/dashboard");
+            navigate("/manager");
+        } else if (res.data.user.role === 'staff') {
+            navigate("/staff");
         } else {
             navigate("/");
         }

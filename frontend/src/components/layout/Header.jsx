@@ -1,241 +1,211 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    AppBar,
-    Toolbar,
-    Typography,
-    Button,
-    Container,
-    Box,
-    Menu,
-    MenuItem,
-    IconButton,
-    Drawer,
-    List,
-    ListItem,
-    ListItemText,
-    Collapse,
-    Divider
+    AppBar, Toolbar, Typography, Button, Container, Box, IconButton,
+    Drawer, List, ListItem, ListItemText, Collapse, Divider
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import { Link } from 'react-router-dom';
+import CloseIcon from '@mui/icons-material/Close';
+import { Link, useNavigate } from 'react-router-dom';
 
 const navItems = [
     {
-        title: 'Tours',
-        dropdown: ['Son Doong Expedition', 'Tu Lan Cave Encounter', 'Hang En Adventure', 'Hang Ba Deep Jungle', 'Family Tours']
+        title: { vi: 'Tours', en: 'Tours' },
+        dropdown: [
+            { label: { vi: 'Tour Dài Ngày', en: 'Multi-Day Tours' }, link: '/#tours' },
+            { label: { vi: 'Tour Qua Đêm', en: 'Overnight Tours' }, link: '/#tours' },
+            { label: { vi: 'Tour Trong Ngày', en: 'Day Tours' }, link: '/#tours' },
+            { label: { vi: 'Tour Gia Đình', en: 'Family Tours' }, link: '/#tours' },
+        ]
     },
     {
-        title: 'Destinations',
-        dropdown: ['Phong Nha', 'Tu Lan Woods', 'Quang Binh']
+        title: { vi: 'Điểm đến', en: 'Destinations' },
+        dropdown: [
+            { label: { vi: 'Phong Nha', en: 'Phong Nha' }, link: '/' },
+            { label: { vi: 'Khu Rừng Tu Lan', en: 'Tu Lan Jungle' }, link: '/' },
+            { label: { vi: 'Quảng Bình', en: 'Quang Binh' }, link: '/' },
+        ]
     },
     {
-        title: 'About Us',
-        dropdown: ['Our Story', 'Core Values', 'Conservation', 'Safety']
+        title: { vi: 'Về Chúng Tôi', en: 'About Us' },
+        dropdown: [
+            { label: { vi: 'Câu chuyện', en: 'Our Story' }, link: '/' },
+            { label: { vi: 'Giá trị cốt lõi', en: 'Core Values' }, link: '/' },
+            { label: { vi: 'Bảo tồn', en: 'Conservation' }, link: '/' },
+        ]
     },
-    {
-        title: 'Media',
-        dropdown: ['Photos', 'Videos', 'News']
-    }
 ];
 
 export default function Header() {
     const { t, i18n } = useTranslation();
+    const navigate = useNavigate();
+    const lang = i18n.language === 'en' ? 'en' : 'vi';
+
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileExpand, setMobileExpand] = useState({});
+    const [hovered, setHovered] = useState(null);
 
-    // State for Desktop Menus
-    const [anchorEls, setAnchorEls] = useState({});
-
-    const handleDrawerToggle = () => {
-        setMobileOpen((prevState) => !prevState);
-    };
-
-    const handleMobileExpand = (title) => {
-        setMobileExpand((prev) => ({ ...prev, [title]: !prev[title] }));
-    };
-
-    const handleMenuOpen = (event, title) => {
-        setAnchorEls((prev) => ({ ...prev, [title]: event.currentTarget }));
-    };
-
-    const handleMenuClose = (title) => {
-        setAnchorEls((prev) => ({ ...prev, [title]: null }));
-    };
-
-    const changeLanguage = (lng) => {
-        i18n.changeLanguage(lng);
-    };
-
-    const drawer = (
-        <Box sx={{ width: 250 }}>
-            <Box sx={{ my: 2, textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#005941', fontWeight: 'bold' }}>
-                    OXALIS
-                </Typography>
-            </Box>
-            <List>
-                {navItems.map((item) => (
-                    <React.Fragment key={item.title}>
-                        <ListItem button onClick={() => handleMobileExpand(item.title)}>
-                            <ListItemText primary={item.title} sx={{ color: '#333' }} />
-                            {mobileExpand[item.title] ? <ExpandLess /> : <ExpandMore />}
-                        </ListItem>
-                        <Collapse in={mobileExpand[item.title]} timeout="auto" unmountOnExit>
-                            <List component="div" disablePadding>
-                                {item.dropdown.map((subItem) => (
-                                    <ListItem button key={subItem} sx={{ pl: 4 }}>
-                                        <ListItemText primary={subItem} sx={{ color: '#666' }} />
-                                    </ListItem>
-                                ))}
-                            </List>
-                        </Collapse>
-                    </React.Fragment>
-                ))}
-            </List>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                <Button
-                    variant={i18n.language === 'en' ? "contained" : "outlined"}
-                    onClick={() => changeLanguage('en')}
-                    sx={{ minWidth: '40px', px: 1 }}
-                >
-                    EN
-                </Button>
-                <Button
-                    variant={i18n.language === 'vi' ? "contained" : "outlined"}
-                    onClick={() => changeLanguage('vi')}
-                    sx={{ minWidth: '40px', px: 1 }}
-                >
-                    VI
-                </Button>
-            </Box>
-        </Box>
-    );
+    const changeLanguage = (lng) => i18n.changeLanguage(lng);
 
     return (
-        <AppBar position="sticky" sx={{ bgcolor: 'white', color: '#1a1a1a', boxShadow: 1 }}>
-            <Container maxWidth="xl">
-                <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
+        <>
+            <AppBar position="sticky" elevation={0}
+                sx={{
+                    bgcolor: 'rgba(255,255,255,0.97)',
+                    backdropFilter: 'blur(12px)',
+                    borderBottom: '1px solid rgba(0,0,0,0.06)',
+                    color: '#1b3a2d',
+                }}>
+                <Container maxWidth="xl">
+                    <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 56, md: 72 } }}>
 
-                    {/* Logo Area */}
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography
-                            variant="h5"
-                            noWrap
-                            component={Link}
-                            to="/"
-                            sx={{
-                                mr: 4,
-                                fontFamily: 'monospace',
-                                fontWeight: 800,
-                                letterSpacing: '.2rem',
-                                color: '#005941',
-                                textDecoration: 'none',
-                            }}
-                        >
-                            OXALIS
-                        </Typography>
-                    </Box>
+                        {/* Logo */}
+                        <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', gap: 1.5 }}>
+                            <Box sx={{
+                                width: 36, height: 36, borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #2b6f56, #1a5a3e)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'white', fontWeight: 900, fontSize: '0.9rem',
+                            }}>O</Box>
+                            <Typography sx={{
+                                fontWeight: 900, fontSize: '1.4rem', letterSpacing: '0.15rem',
+                                color: '#1b3a2d', fontFamily: '"Inter", sans-serif',
+                            }}>
+                                OXALIS
+                            </Typography>
+                        </Box>
 
-                    {/* Desktop Menu */}
-                    <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
-                        {navItems.map((item) => (
-                            <Box key={item.title}>
-                                <Button
-                                    onClick={(e) => handleMenuOpen(e, item.title)}
-                                    endIcon={<KeyboardArrowDownIcon />}
-                                    sx={{ my: 2, color: '#333', display: 'flex', fontWeight: 600, mx: 1 }}
-                                >
-                                    {item.title}
-                                </Button>
-                                <Menu
-                                    anchorEl={anchorEls[item.title]}
-                                    open={Boolean(anchorEls[item.title])}
-                                    onClose={() => handleMenuClose(item.title)}
-                                    MenuListProps={{ onMouseLeave: () => handleMenuClose(item.title) }}
-                                    elevation={3}
-                                    sx={{ mt: 1 }}
-                                >
-                                    {item.dropdown.map((subItem) => (
-                                        <MenuItem key={subItem} onClick={() => handleMenuClose(item.title)} sx={{ minWidth: 200 }}>
-                                            {subItem}
-                                        </MenuItem>
-                                    ))}
-                                </Menu>
+                        {/* Desktop Nav */}
+                        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                            {navItems.map((item) => (
+                                <Box key={item.title.en}
+                                    onMouseEnter={() => setHovered(item.title.en)}
+                                    onMouseLeave={() => setHovered(null)}
+                                    sx={{ position: 'relative' }}>
+                                    <Button
+                                        endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '1rem !important', transition: 'transform .2s', transform: hovered === item.title.en ? 'rotate(180deg)' : 'none' }} />}
+                                        sx={{
+                                            color: hovered === item.title.en ? '#2b6f56' : '#444',
+                                            fontWeight: 600, fontSize: '0.88rem', textTransform: 'none',
+                                            px: 2, py: 1,
+                                            transition: 'color .2s',
+                                        }}>
+                                        {item.title[lang]}
+                                    </Button>
+                                    {/* Dropdown */}
+                                    <Box sx={{
+                                        position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                                        minWidth: 200, bgcolor: 'white', borderRadius: 2,
+                                        boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+                                        border: '1px solid rgba(0,0,0,0.06)',
+                                        opacity: hovered === item.title.en ? 1 : 0,
+                                        visibility: hovered === item.title.en ? 'visible' : 'hidden',
+                                        transform: hovered === item.title.en ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(-8px)',
+                                        transition: 'all .25s ease',
+                                        py: 1, zIndex: 100,
+                                    }}>
+                                        {item.dropdown.map(sub => (
+                                            <Box key={sub.label.en} component={Link} to={sub.link}
+                                                sx={{
+                                                    display: 'block', px: 2.5, py: 1.2,
+                                                    color: '#444', textDecoration: 'none',
+                                                    fontSize: '0.88rem', fontWeight: 500,
+                                                    transition: 'all .15s',
+                                                    '&:hover': { bgcolor: '#f0faf5', color: '#2b6f56', pl: 3 },
+                                                }}>
+                                                {sub.label[lang]}
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Box>
+
+                        {/* Desktop Right */}
+                        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{
+                                display: 'flex', border: '1px solid #ddd', borderRadius: 5, overflow: 'hidden',
+                            }}>
+                                {['EN', 'VI'].map(lng => (
+                                    <Button key={lng} size="small" onClick={() => changeLanguage(lng.toLowerCase())}
+                                        sx={{
+                                            minWidth: 36, px: 1.5, py: 0.4, fontSize: '0.75rem', fontWeight: 700,
+                                            color: i18n.language === lng.toLowerCase() ? 'white' : '#888',
+                                            bgcolor: i18n.language === lng.toLowerCase() ? '#2b6f56' : 'transparent',
+                                            borderRadius: 0,
+                                            '&:hover': { bgcolor: i18n.language === lng.toLowerCase() ? '#1a5a3e' : '#f5f5f5' },
+                                        }}>
+                                        {lng}
+                                    </Button>
+                                ))}
                             </Box>
-                        ))}
-                    </Box>
-
-                    {/* Desktop Right Actions & Language Switcher */}
-                    <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ display: 'flex', gap: 1, mr: 2 }}>
-                            <Button
-                                size="small"
-                                onClick={() => changeLanguage('en')}
+                            <Button variant="contained" onClick={() => navigate('/#tours')}
                                 sx={{
-                                    minWidth: '30px',
-                                    p: 0.5,
-                                    color: i18n.language === 'en' ? '#fff' : '#666',
-                                    bgcolor: i18n.language === 'en' ? '#005941' : 'transparent',
-                                    '&:hover': { bgcolor: i18n.language === 'en' ? '#003d2b' : '#f0f0f0' }
-                                }}
-                            >
-                                EN
-                            </Button>
-                            <Button
-                                size="small"
-                                onClick={() => changeLanguage('vi')}
-                                sx={{
-                                    minWidth: '30px',
-                                    p: 0.5,
-                                    color: i18n.language === 'vi' ? '#fff' : '#666',
-                                    bgcolor: i18n.language === 'vi' ? '#005941' : 'transparent',
-                                    '&:hover': { bgcolor: i18n.language === 'vi' ? '#003d2b' : '#f0f0f0' }
-                                }}
-                            >
-                                VI
+                                    bgcolor: '#2b6f56', fontWeight: 700, fontSize: '0.85rem',
+                                    borderRadius: 6, px: 3, py: 0.9, textTransform: 'none',
+                                    boxShadow: '0 2px 12px rgba(43,111,86,0.25)',
+                                    '&:hover': { bgcolor: '#1a5a3e', boxShadow: '0 4px 16px rgba(43,111,86,0.35)' },
+                                }}>
+                                {t('header.bookNow')}
                             </Button>
                         </Box>
-                        <Button variant="contained" sx={{ bgcolor: '#005941', '&:hover': { bgcolor: '#003d2b' }, borderRadius: 6, px: 3 }}>
-                            {t('header.bookNow')}
-                        </Button>
-                    </Box>
 
-                    {/* Mobile Menu Icon */}
-                    <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
-                        <IconButton
-                            size="large"
-                            aria-label="menu"
-                            aria-controls="menu-appbar"
-                            aria-haspopup="true"
-                            onClick={handleDrawerToggle}
-                            color="inherit"
-                        >
+                        {/* Mobile menu btn */}
+                        <IconButton onClick={() => setMobileOpen(true)} sx={{ display: { md: 'none' }, color: '#1b3a2d' }}>
                             <MenuIcon />
                         </IconButton>
-                    </Box>
-
-                </Toolbar>
-            </Container>
+                    </Toolbar>
+                </Container>
+            </AppBar>
 
             {/* Mobile Drawer */}
-            <Drawer
-                variant="temporary"
-                anchor="right"
-                open={mobileOpen}
-                onClose={handleDrawerToggle}
-                ModalProps={{ keepMounted: true }}
-                sx={{
-                    display: { xs: 'block', md: 'none' },
-                    '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 },
-                }}
-            >
-                {drawer}
+            <Drawer anchor="right" open={mobileOpen} onClose={() => setMobileOpen(false)}
+                sx={{ '& .MuiDrawer-paper': { width: 280, bgcolor: '#faf8f4' } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
+                    <Typography fontWeight={900} color="#1b3a2d" fontSize="1.2rem">OXALIS</Typography>
+                    <IconButton onClick={() => setMobileOpen(false)}><CloseIcon /></IconButton>
+                </Box>
+                <Divider />
+                <List sx={{ px: 1 }}>
+                    {navItems.map(item => (
+                        <React.Fragment key={item.title.en}>
+                            <ListItem button onClick={() => setMobileExpand(prev => ({ ...prev, [item.title.en]: !prev[item.title.en] }))}
+                                sx={{ borderRadius: 2, mb: 0.5 }}>
+                                <ListItemText primary={item.title[lang]} primaryTypographyProps={{ fontWeight: 600, fontSize: '0.95rem' }} />
+                                {mobileExpand[item.title.en] ? <ExpandLess /> : <ExpandMore />}
+                            </ListItem>
+                            <Collapse in={mobileExpand[item.title.en]} timeout="auto" unmountOnExit>
+                                <List disablePadding>
+                                    {item.dropdown.map(sub => (
+                                        <ListItem button key={sub.label.en} component={Link} to={sub.link}
+                                            onClick={() => setMobileOpen(false)}
+                                            sx={{ pl: 4, borderRadius: 1, '&:hover': { bgcolor: '#edf8f2' } }}>
+                                            <ListItemText primary={sub.label[lang]} primaryTypographyProps={{ fontSize: '0.88rem', color: '#555' }} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </Collapse>
+                        </React.Fragment>
+                    ))}
+                </List>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, p: 2 }}>
+                    {['EN', 'VI'].map(lng => (
+                        <Button key={lng} variant={i18n.language === lng.toLowerCase() ? 'contained' : 'outlined'}
+                            onClick={() => changeLanguage(lng.toLowerCase())}
+                            sx={{
+                                minWidth: 44, fontWeight: 700, fontSize: '0.8rem',
+                                bgcolor: i18n.language === lng.toLowerCase() ? '#2b6f56' : 'transparent',
+                                borderColor: '#2b6f56', color: i18n.language === lng.toLowerCase() ? 'white' : '#2b6f56',
+                            }}>
+                            {lng}
+                        </Button>
+                    ))}
+                </Box>
             </Drawer>
-        </AppBar>
+        </>
     );
 }

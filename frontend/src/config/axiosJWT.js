@@ -2,8 +2,8 @@
 
 import axios from 'axios'
 import { axiosPublic } from './axiosPublic'
-import { setAccessToken, clearToken } from '../redux/clices/tokenSlice'
-import { logout } from '../redux/clices/authSlice'
+import { setAccessToken, clearToken } from '../redux/slices/tokenSlice'
+import { logout } from '../redux/slices/authSlice'
 
 const baseURL = 'http://localhost:9999'
 

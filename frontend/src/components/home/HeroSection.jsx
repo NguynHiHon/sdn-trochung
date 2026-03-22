@@ -13,110 +13,99 @@ export default function HeroSection() {
         <Box
             sx={{
                 position: 'relative',
-                height: '90vh',
-                minHeight: '600px',
+                height: '92vh',
+                minHeight: '620px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
-                bgcolor: '#005941', // Dark forest green fallback
+                bgcolor: '#0a2e1f',
             }}
         >
-            {/* Background Video/Image Placeholder */}
+            {/* Background Image */}
             <ImageWithFallback
                 src="/images/hero-bg.jpg"
                 fallbackSrc="https://images.unsplash.com/photo-1596484552834-6a58f850d0a1?q=80&w=2070&auto=format&fit=crop"
                 alt="Son Doong Cave"
                 sx={{
                     position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    zIndex: 1,
-                    opacity: 0.8,
+                    top: 0, left: 0, width: '100%', height: '100%',
+                    objectFit: 'cover', zIndex: 1, opacity: 0.75,
                 }}
             />
 
-            {/* Dark Overlay */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    bgcolor: 'rgba(0, 0, 0, 0.4)',
-                    zIndex: 2,
-                }}
-            />
+            {/* Gradient Overlays */}
+            <Box sx={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.55) 100%)',
+                zIndex: 2,
+            }} />
+            <Box sx={{
+                position: 'absolute', bottom: 0, left: 0, width: '100%', height: 120,
+                background: 'linear-gradient(to top, #faf8f4 0%, transparent 100%)',
+                zIndex: 3,
+            }} />
 
             {/* Content */}
-            <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 3, textAlign: 'center', color: 'white' }}>
-                <Typography
-                    variant="h2"
-                    component="h1"
+            <Container maxWidth="md" sx={{ position: 'relative', zIndex: 4, textAlign: 'center', color: 'white' }}>
+                {/* Badge */}
+                <Box sx={{
+                    display: 'inline-flex', alignItems: 'center', gap: 1,
+                    bgcolor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 5, px: 2.5, py: 0.6, mb: 3,
+                }}>
+                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#4ade80' }} />
+                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        {t('home.heroTitle') ? (t('home.heroTitle').includes('Oxalis') ? 'World-Class Adventure' : 'Khám Phá Thế Giới') : 'Adventure Awaits'}
+                    </Typography>
+                </Box>
+
+                <Typography variant="h1" component="h1"
                     sx={{
-                        fontWeight: 800,
-                        letterSpacing: '1px',
-                        textTransform: 'uppercase',
-                        mb: 2,
-                        textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
-                        fontSize: { xs: '2.5rem', md: '4rem' }
-                    }}
-                >
+                        fontWeight: 900, letterSpacing: '-0.02em',
+                        mb: 2.5, fontFamily: '"Inter", sans-serif',
+                        textShadow: '0 4px 24px rgba(0,0,0,0.4)',
+                        fontSize: { xs: '2.2rem', sm: '3rem', md: '3.6rem' },
+                        lineHeight: 1.1,
+                    }}>
                     {t('home.heroTitle')}
                 </Typography>
-                <Typography
-                    variant="h5"
+                <Typography variant="h6"
                     sx={{
-                        mb: 4,
-                        fontWeight: 400,
-                        textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                        maxWidth: '800px',
-                        mx: 'auto'
-                    }}
-                >
+                        mb: 5, fontWeight: 400, lineHeight: 1.6,
+                        textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                        maxWidth: 600, mx: 'auto',
+                        color: 'rgba(255,255,255,0.88)',
+                        fontSize: { xs: '0.95rem', md: '1.1rem' },
+                    }}>
                     {t('home.heroSubtitle')}
                 </Typography>
+
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Button
-                        variant="contained"
-                        size="large"
+                    <Button variant="contained" size="large"
+                        href="#tours"
                         sx={{
-                            bgcolor: '#005941',
-                            color: 'white',
-                            px: 4,
-                            py: 1.5,
-                            fontSize: '1.1rem',
-                            fontWeight: 'bold',
-                            borderRadius: '50px',
-                            '&:hover': {
-                                bgcolor: '#003d2b',
-                            }
-                        }}
-                    >
+                            bgcolor: '#2b6f56', color: 'white',
+                            px: 4, py: 1.5, fontSize: '1rem', fontWeight: 700,
+                            borderRadius: 6, textTransform: 'none',
+                            boxShadow: '0 4px 20px rgba(43,111,86,0.4)',
+                            '&:hover': { bgcolor: '#1a5a3e', boxShadow: '0 8px 28px rgba(43,111,86,0.5)' },
+                        }}>
                         {t('home.findYourTour')}
                     </Button>
-                    <Button
-                        variant="outlined"
-                        size="large"
+                    <Button variant="outlined" size="large"
                         startIcon={<PlayCircleOutlineIcon />}
                         sx={{
-                            borderColor: 'white',
-                            color: 'white',
-                            px: 4,
-                            py: 1.5,
-                            fontSize: '1.1rem',
-                            fontWeight: 'bold',
-                            borderRadius: '50px',
+                            borderColor: 'rgba(255,255,255,0.5)', color: 'white',
+                            px: 4, py: 1.5, fontSize: '1rem', fontWeight: 700,
+                            borderRadius: 6, textTransform: 'none',
+                            backdropFilter: 'blur(4px)',
                             '&:hover': {
                                 borderColor: 'white',
                                 bgcolor: 'rgba(255,255,255,0.1)',
-                            }
-                        }}
-                    >
+                            },
+                        }}>
                         {t('home.watchVideo')}
                     </Button>
                 </Box>

@@ -1,210 +1,176 @@
-const mongoose = require('mongoose');
+// bookingService.js - No transactions needed (standalone MongoDB compatible)
 const Booking = require('../models/booking.model');
-const TourAvailability = require('../models/availability.model');
+const Schedule = require('../models/schedule.model');
 const Tour = require('../models/tour.model');
+const Participant = require('../models/participant.model');
 
-// Access socket.io instance
 let io;
-const setIO = (socketIoInstance) => {
-    io = socketIoInstance;
-};
+const setIO = (socketIoInstance) => { io = socketIoInstance; };
 
-const getAvailability = async (tourId, date = null) => {
+const getAvailability = async (tourId, month, year) => {
     const tour = await Tour.findById(tourId);
-    if (!tour) {
-        throw new Error("Tour not found");
-    }
+    if (!tour) throw new Error("Tour not found");
 
-    let query = { tourId };
-    if (date) {
-        query.date = date;
+    const filter = { tourId, status: { $in: ['Available', 'Full'] } };
+    if (month && year) {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59);
+        filter.startDate = { $gte: startDate, $lte: endDate };
+    } else {
+        filter.startDate = { $gte: new Date() };
     }
-    const availability = await TourAvailability.find(query);
-    return availability; // Mongoose virtual remainingSlots will be included (if set up well, or we just map it)
+    
+    return await Schedule.find(filter).sort({ startDate: 1 });
 };
 
 const holdBooking = async (bookingData) => {
-    const session = await mongoose.startSession();
-    try {
-        session.startTransaction();
+    const { userId, tourId, scheduleId, totalGuests, totalPrice, contactInfo, participants } = bookingData;
 
-        const { userId, tourId, date, numberOfGuests, totalPrice, guestInfo } = bookingData;
+    const tour = await Tour.findById(tourId);
+    if (!tour) throw new Error("Tour not found");
 
-        // Date Validation
-        if (!date || isNaN(new Date(date).getTime())) {
-            throw new Error("Invalid date format");
-        }
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // start of day for accurate comparison
-        
-        const bookingDate = new Date(date);
-        if (bookingDate < today) {
-            throw new Error("Cannot book past dates");
-        }
+    const schedule = await Schedule.findById(scheduleId);
+    if (!schedule) throw new Error('Schedule not found');
+    if (schedule.tourId.toString() !== tourId.toString()) throw new Error('Schedule does not belong to this tour');
 
-        // Tour existence validation
-        const tour = await Tour.findById(tourId).session(session);
-        if (!tour) {
-            throw new Error("Tour not found");
-        }
-
-        // Find availability for this date
-        const availability = await TourAvailability.findOne({ tourId, date }).session(session);
-        
-        if (!availability) {
-            throw new Error('Tour slot not available for this date');
-        }
-
-        const remainingSlots = availability.totalSlots - availability.bookedSlots;
-        
-        if (remainingSlots < numberOfGuests) {
-            throw new Error('Not enough slots available');
-        }
-
-        // Increment booked slots
-        availability.bookedSlots += numberOfGuests;
-        await availability.save({ session });
-
-        // Create hold booking
-        const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-        
-        // Generate booking Code
-        const random = Math.floor(100000 + Math.random() * 900000);
-        const bookingCode = `OXA-${new Date().getFullYear()}-${random}`;
-
-        const booking = new Booking({
-            userId,
-            tourId,
-            date,
-            bookingCode,
-            numberOfGuests,
-            status: 'HOLD',
-            totalPrice,
-            holdExpiresAt,
-            guestInfo
-        });
-
-        await booking.save({ session });
-        
-        await session.commitTransaction();
-
-        // Emit event to room
-        if (io) {
-            io.to(`tour_${tourId}`).emit('availabilityUpdated', { tourId, date });
-        }
-        
-        return booking;
-    } catch (err) {
-        await session.abortTransaction();
-        console.error("Transaction error holding booking:", err);
-        throw err;
-    } finally {
-        session.endSession();
+    const remainingSlots = schedule.capacity - schedule.bookedSlots;
+    if (remainingSlots < totalGuests) throw new Error('Not enough slots available');
+    
+    if (participants && participants.length !== totalGuests) {
+        throw new Error('Số lượng hành khách (participants) phải bằng tổng số lượng khách (totalGuests)');
     }
+
+    if (participants && participants.length > 0) {
+        for (let p of participants) {
+            if (p.dob) {
+                const dob = new Date(p.dob);
+                let age = new Date().getFullYear() - dob.getFullYear();
+                const monthDiff = new Date().getMonth() - dob.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && new Date().getDate() < dob.getDate())) {
+                    age--;
+                }
+                if (tour.ageMin && age < tour.ageMin) throw new Error(`Hành khách ${p.fullName} chưa đủ ${tour.ageMin} tuổi.`);
+                if (tour.ageMax && age > tour.ageMax) throw new Error(`Hành khách ${p.fullName} vượt quá ${tour.ageMax} tuổi.`);
+            }
+        }
+    }
+
+    // Update schedule slots
+    schedule.bookedSlots += totalGuests;
+    if (schedule.bookedSlots >= schedule.capacity) schedule.status = 'Full';
+    await schedule.save();
+
+    const holdExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours for admin follow-up
+    const random = Math.floor(100000 + Math.random() * 900000);
+    const bookingCode = `OXA-${new Date().getFullYear()}-${random}`;
+
+    let booking;
+    try {
+        booking = new Booking({
+            userId, tourId, scheduleId, bookingCode,
+            totalGuests, status: 'HOLD', totalPrice, holdExpiresAt, contactInfo
+        });
+        await booking.save();
+    } catch (err) {
+        // Rollback schedule if booking save fails
+        schedule.bookedSlots -= totalGuests;
+        if (schedule.bookedSlots < schedule.capacity && schedule.status === 'Full') schedule.status = 'Available';
+        await schedule.save();
+        throw err;
+    }
+
+    try {
+        if (participants && participants.length > 0) {
+            const pDocs = participants.map(p => ({
+                ...p,
+                bookingId: booking._id,
+                tourId
+            }));
+            await Participant.insertMany(pDocs);
+        }
+    } catch (err) {
+        console.error('Failed to save participants, but booking was created:', err.message);
+        // Don't throw - booking is still valid even if participants fail
+    }
+
+    if (io) io.to(`tour_${tourId}`).emit('availabilityUpdated', { tourId, scheduleId });
+    
+    // 🔔 Thông báo real-time cho tất cả admin
+    try {
+        const notificationService = require('./notification.service');
+        await notificationService.notifyAllAdmins({
+            type: 'new_booking',
+            title: 'Booking mới',
+            content: `Khách "${contactInfo.fullName}" đặt tour — ${booking.bookingCode} — ${totalGuests} khách — ${totalPrice?.toLocaleString('vi-VN')}₫`,
+            relatedId: booking._id,
+            relatedModel: 'Booking',
+        });
+    } catch (err) {
+        console.error('[Notification] Failed to notify admins:', err.message);
+    }
+
+    return booking;
 };
 
 const confirmBooking = async (bookingId, userId) => {
-    const session = await mongoose.startSession();
-    try {
-        session.startTransaction();
+    const query = { _id: bookingId, status: 'HOLD' };
+    if (userId) query.userId = userId;
+    
+    const booking = await Booking.findOne(query);
+    if (!booking) throw new Error('Booking not found or not in HOLD status');
+    if (new Date() > booking.holdExpiresAt) throw new Error('Booking hold has expired');
 
-        const booking = await Booking.findOne({ _id: bookingId, userId, status: 'HOLD' }).session(session);
-        
-        if (!booking) {
-            throw new Error('Booking not found or not in HOLD status');
-        }
-
-        // Check if hold expired
-        if (new Date() > booking.holdExpiresAt) {
-            throw new Error('Booking hold has expired');
-        }
-
-        booking.status = 'CONFIRMED';
-        booking.holdExpiresAt = undefined;
-        await booking.save({ session });
-
-        await session.commitTransaction();
-        return booking;
-    } catch (err) {
-        await session.abortTransaction();
-        throw err;
-    } finally {
-        session.endSession();
-    }
+    booking.status = 'CONFIRMED';
+    booking.holdExpiresAt = undefined;
+    await booking.save();
+    return booking;
 };
 
 const cancelBooking = async (bookingId, userId) => {
-    const session = await mongoose.startSession();
-    try {
-        session.startTransaction();
+    const query = { _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } };
+    if (userId) query.userId = userId;
 
-        const booking = await Booking.findOne({ _id: bookingId, userId, status: { $in: ['HOLD', 'CONFIRMED'] } }).session(session);
-        
-        if (!booking) {
-            throw new Error('Booking not found');
-        }
+    const booking = await Booking.findOne(query);
+    if (!booking) throw new Error('Booking not found');
 
-        // Release slots
-        const availability = await TourAvailability.findOne({ tourId: booking.tourId, date: booking.date }).session(session);
-        if (availability) {
-            availability.bookedSlots -= booking.numberOfGuests;
-            // Prevent negative bookedSlots just in case
-            if(availability.bookedSlots < 0) availability.bookedSlots = 0;
-            await availability.save({ session });
-        }
-
-        booking.status = 'CANCELLED';
-        await booking.save({ session });
-
-        await session.commitTransaction();
-
-        if (io && booking.tourId) {
-            io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, date: booking.date });
-        }
-
-        return booking;
-    } catch (err) {
-        await session.abortTransaction();
-        throw err;
-    } finally {
-        session.endSession();
+    const schedule = await Schedule.findById(booking.scheduleId);
+    if (schedule) {
+        schedule.bookedSlots -= booking.totalGuests;
+        if (schedule.bookedSlots < 0) schedule.bookedSlots = 0;
+        if (schedule.bookedSlots < schedule.capacity && schedule.status === 'Full') schedule.status = 'Available';
+        await schedule.save();
     }
+
+    booking.status = 'CANCELLED';
+    await booking.save();
+
+    if (io && booking.tourId) io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, scheduleId: booking.scheduleId });
+
+    return booking;
 };
 
-// Background task to run every 5 minutes
 const releaseExpiredHolds = async () => {
     try {
         const now = new Date();
-        const expiredBookings = await Booking.find({
-            status: 'HOLD',
-            holdExpiresAt: { $lt: now }
-        });
+        const expiredBookings = await Booking.find({ status: 'HOLD', holdExpiresAt: { $lt: now } });
 
         for (const booking of expiredBookings) {
-            const session = await mongoose.startSession();
             try {
-                session.startTransaction();
-                const availability = await TourAvailability.findOne({ tourId: booking.tourId, date: booking.date }).session(session);
+                const schedule = await Schedule.findById(booking.scheduleId);
                 
-                if (availability) {
-                    availability.bookedSlots -= booking.numberOfGuests;
-                    if(availability.bookedSlots < 0) availability.bookedSlots = 0;
-                    await availability.save({ session });
+                if (schedule) {
+                    schedule.bookedSlots -= booking.totalGuests;
+                    if (schedule.bookedSlots < 0) schedule.bookedSlots = 0;
+                    if (schedule.bookedSlots < schedule.capacity && schedule.status === 'Full') schedule.status = 'Available';
+                    await schedule.save();
                 }
 
                 booking.status = 'CANCELLED';
-                await booking.save({ session });
-                await session.commitTransaction();
+                await booking.save();
                 
-                if (io) {
-                    io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, date: booking.date });
-                }
+                if (io) io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, scheduleId: booking.scheduleId });
             } catch (err) {
                 console.error(`Failed to release hold for booking ${booking._id}:`, err);
-                await session.abortTransaction();
-            } finally {
-                session.endSession();
             }
         }
     } catch (e) {
@@ -212,39 +178,37 @@ const releaseExpiredHolds = async () => {
     }
 };
 
-const generateTourAvailability = async (tourId, groupSize = 10) => {
-    const today = new Date();
-    const availabilityDocs = [];
-    
-    // Generate for next 365 days
-    for (let i = 0; i < 365; i++) {
-        const dateObj = new Date(today);
-        dateObj.setDate(today.getDate() + i);
-        const dateStr = dateObj.toISOString().split('T')[0];
-        
-        availabilityDocs.push({
-            tourId,
-            date: dateStr,
-            totalSlots: groupSize,
-            bookedSlots: 0
-        });
-    }
+const getAllBookings = async ({ tourId, scheduleId, status, page = 1, limit = 20 }) => {
+    const filter = {};
+    if (tourId && tourId !== 'all') filter.tourId = tourId;
+    if (scheduleId && scheduleId !== 'all') filter.scheduleId = scheduleId;
+    if (status && status !== 'all') filter.status = status;
 
-    try {
-        await TourAvailability.insertMany(availabilityDocs, { ordered: false });
-    } catch (err) {
-        if (err.code !== 11000) {
-            console.error('Error generating availability:', err);
-        }
-    }
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const data = await Booking.find(filter)
+        .populate('tourId', 'name code')
+        .populate('scheduleId', 'startDate endDate')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
+
+    const total = await Booking.countDocuments(filter);
+
+    return {
+        data,
+        total,
+        page: pageNum,
+        totalPages: Math.ceil(total / limitNum)
+    };
 };
 
-module.exports = {
-    setIO,
-    getAvailability,
-    holdBooking,
-    confirmBooking,
-    cancelBooking,
-    releaseExpiredHolds,
-    generateTourAvailability
+const getBookingById = async (bookingId) => {
+    return await Booking.findById(bookingId)
+        .populate('tourId', 'name code durationDays')
+        .populate('scheduleId', 'startDate endDate');
 };
+
+module.exports = { setIO, getAvailability, holdBooking, confirmBooking, cancelBooking, releaseExpiredHolds, getAllBookings, getBookingById };

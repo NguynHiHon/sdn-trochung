@@ -3,17 +3,20 @@ const bookingService = require('../services/bookingService');
 const getTourAvailability = async (req, res) => {
     try {
         const { tourId } = req.params;
-        const { date } = req.query; // optional
+        const { month, year } = req.query;
 
-        const availability = await bookingService.getAvailability(tourId, date);
-        // Map to include remainingSlots correctly (handling mongoose virtuals safely)
+        const availability = await bookingService.getAvailability(tourId, month, year);
+        
         const responseData = availability.map(a => ({
             id: a._id,
             tourId: a.tourId,
-            date: a.date,
-            totalSlots: a.totalSlots,
+            scheduleId: a._id,
+            startDate: a.startDate,
+            endDate: a.endDate,
+            totalSlots: a.capacity,
             bookedSlots: a.bookedSlots,
-            remainingSlots: a.totalSlots - a.bookedSlots
+            remainingSlots: a.capacity - a.bookedSlots,
+            status: a.status
         }));
         
         res.status(200).json({ success: true, data: responseData });
@@ -27,42 +30,41 @@ const getTourAvailability = async (req, res) => {
 
 const holdBooking = async (req, res) => {
     try {
-        // user should be authenticated, but we simulate it or pull from token
-        // assuming req.user._id is available via auth middleware, fallback to body
-        const userId = req.user?._id || req.body.userId;
-        const { tourId, date, numberOfGuests, totalPrice, guestInfo } = req.body;
-
-        if(!userId) {
-            return res.status(401).json({ success: false, message: 'User must be logged in' });
-        }
+        const userId = req.user?._id || req.body.userId; // user optional
+        const { tourId, scheduleId, totalGuests, totalPrice, contactInfo, participants } = req.body;
 
         const newBooking = await bookingService.holdBooking({
             userId,
             tourId,
-            date,
-            numberOfGuests: Number(numberOfGuests),
+            scheduleId,
+            totalGuests: Number(totalGuests),
             totalPrice: Number(totalPrice),
-            guestInfo
+            contactInfo,
+            participants
         });
 
-        // The example requirement expects bookingCode at root
         res.status(201).json({ 
             success: true, 
             bookingCode: newBooking.bookingCode,
             data: newBooking, 
-            message: 'Booking held for 15 minutes' 
+            message: 'Đặt tour thành công! Nhân viên sẽ liên hệ bạn trong 24 giờ.' 
         });
     } catch (error) {
-        if (error.message === 'Invalid date format' || error.message === 'Cannot book past dates') {
-            return res.status(400).json({ success: false, message: error.message });
+        console.error('[holdBooking] ERROR:', error.message);
+        console.error('[holdBooking] STACK:', error.stack);
+        console.error('[holdBooking] REQ BODY:', JSON.stringify(req.body, null, 2));
+        
+        const _msg = error.message;
+        if (_msg.includes('Tuổi') || _msg.includes('participants') || _msg.includes('bắt buộc')) {
+            return res.status(400).json({ success: false, message: _msg });
         }
-        if (error.message === 'Tour not found') {
-            return res.status(404).json({ success: false, message: error.message });
+        if (_msg === 'Tour not found' || _msg === 'Schedule not found') {
+            return res.status(404).json({ success: false, message: _msg });
         }
-        if (error.message === 'Not enough slots available' || error.message === 'Tour slot not available for this date') {
-            return res.status(409).json({ success: false, message: error.message });
+        if (_msg === 'Not enough slots available' || _msg.includes('slots')) {
+            return res.status(409).json({ success: false, message: _msg });
         }
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: _msg });
     }
 };
 
@@ -72,13 +74,12 @@ const confirmBooking = async (req, res) => {
         const userId = req.user?._id || req.body.userId;
 
         const confirmedBooking = await bookingService.confirmBooking(id, userId);
-
         res.status(200).json({ success: true, data: confirmedBooking, message: 'Booking confirmed successfully' });
     } catch (error) {
-        if (error.message === 'Booking not found or not in HOLD status') {
+        if (error.message.includes('not found')) {
             return res.status(404).json({ success: false, message: error.message });
         }
-        if (error.message === 'Booking hold has expired') {
+        if (error.message.includes('expired')) {
             return res.status(400).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: error.message });
@@ -88,10 +89,9 @@ const confirmBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body.userId; // only own user can cancel
+        const userId = req.user?._id || req.body.userId; 
 
         const cancelledBooking = await bookingService.cancelBooking(id, userId);
-
         res.status(200).json({ success: true, data: cancelledBooking, message: 'Booking cancelled successfully' });
     } catch (error) {
         if (error.message === 'Booking not found') {
@@ -101,9 +101,30 @@ const cancelBooking = async (req, res) => {
     }
 };
 
+const getAllBookings = async (req, res) => {
+    try {
+        const result = await bookingService.getAllBookings(req.query);
+        res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const getBookingById = async (req, res) => {
+    try {
+        const booking = await bookingService.getBookingById(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+        res.status(200).json({ success: true, data: booking });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getTourAvailability,
     holdBooking,
     confirmBooking,
-    cancelBooking
+    cancelBooking,
+    getAllBookings,
+    getBookingById
 };

@@ -3,7 +3,7 @@ import {
     getUserProfileStart,
     getUserProfileSuccess,
     getUserProfileFailure
-} from '../redux/clices/userSlice';
+} from '../redux/slices/userSlice';
 
 // Get User Profile (requires accessToken)
 export const fetchUserProfile = async (dispatch) => {
