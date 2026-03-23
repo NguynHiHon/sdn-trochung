@@ -97,7 +97,7 @@ export default function Header() {
                                     </Button>
                                     {/* Dropdown */}
                                     <Box sx={{
-                                        position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                                        position: 'absolute', top: '100%', left: '50%',
                                         minWidth: 200, bgcolor: 'white', borderRadius: 2,
                                         boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
                                         border: '1px solid rgba(0,0,0,0.06)',
