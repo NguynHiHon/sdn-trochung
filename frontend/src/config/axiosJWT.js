@@ -33,7 +33,11 @@ export const setupJwtInterceptors = (store) => {
         const accessToken = state?.token?.accessToken // Lấy từ tokenSlice
         if (accessToken) {
             config.headers = config.headers || {}
-            config.headers.Authorization = `Bearer ${accessToken}`
+            if (config.headers.set) {
+                config.headers.set('Authorization', `Bearer ${accessToken}`)
+            } else {
+                config.headers.Authorization = `Bearer ${accessToken}`
+            }
         }
         return config
     })
@@ -51,7 +55,11 @@ export const setupJwtInterceptors = (store) => {
                     return new Promise((resolve, reject) => {
                         refreshQueue.push({ resolve, reject })
                     }).then((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`
+                        if (originalRequest.headers && originalRequest.headers.set) {
+                            originalRequest.headers.set('Authorization', `Bearer ${token}`)
+                        } else {
+                            originalRequest.headers.Authorization = `Bearer ${token}`
+                        }
                         return axiosJWT(originalRequest)
                     })
                 }
@@ -65,7 +73,11 @@ export const setupJwtInterceptors = (store) => {
                         store.dispatch(setAccessToken(accessToken))
                         processQueue(null, accessToken)
 
-                        originalRequest.headers.Authorization = `Bearer ${accessToken}`
+                        if (originalRequest.headers && originalRequest.headers.set) {
+                            originalRequest.headers.set('Authorization', `Bearer ${accessToken}`)
+                        } else {
+                            originalRequest.headers.Authorization = `Bearer ${accessToken}`
+                        }
                         return axiosJWT(originalRequest)
                     } else {
                         throw new Error('No access token received')

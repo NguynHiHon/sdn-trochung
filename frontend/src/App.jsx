@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { setupJwtInterceptors } from './config/axiosJWT'
 import { store } from './redux/store'
+import { useSelector, useDispatch } from 'react-redux'
+import { refreshAccessToken } from './services/authService'
 import SignUpPage from './pages/SignUpPage'
 import SignInPage from './pages/SignInPage'
 import ProfilePage from './pages/ProfilePage'
@@ -14,6 +16,7 @@ import MainLayout from './components/layout/MainLayout'
 
 // Staff
 import StaffLayout from './components/layout/StaffLayout'
+import StaffDashboard from './pages/Staff/StaffDashboard'
 import StaffAssignments from './pages/Staff/StaffAssignments'
 import StaffTours from './pages/Staff/StaffTours'
 
@@ -33,6 +36,18 @@ import AccountManager from './pages/Admin/AccountManager'
 setupJwtInterceptors(store)
 
 function App() {
+  const dispatch = useDispatch()
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
+  const accessToken = useSelector((state) => state.token.accessToken)
+
+  // Khi reload trang: user vẫn đăng nhập (auth persist) nhưng token mất → tự refresh
+  useEffect(() => {
+    if (isAuthenticated && !accessToken) {
+      refreshAccessToken(dispatch).catch(() => {
+        // Refresh thất bại → đã logout trong service
+      })
+    }
+  }, [isAuthenticated, accessToken, dispatch])
 
   return (
     <>
@@ -67,7 +82,7 @@ function App() {
 
           {/* Staff Routes */}
           <Route path='/staff' element={<StaffLayout />}>
-            <Route index element={<StaffAssignments />} />
+            <Route index element={<StaffDashboard />} />
             <Route path='assignments' element={<StaffAssignments />} />
             <Route path='tours' element={<StaffTours />} />
           </Route>
