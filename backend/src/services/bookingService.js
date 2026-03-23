@@ -126,7 +126,7 @@ const confirmBooking = async (bookingId, userId) => {
     return booking;
 };
 
-const cancelBooking = async (bookingId, userId) => {
+const cancelBooking = async (bookingId, userId, reason = '') => {
     const query = { _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } };
     if (userId) query.userId = userId;
 
@@ -142,9 +142,20 @@ const cancelBooking = async (bookingId, userId) => {
     }
 
     booking.status = 'CANCELLED';
+    booking.cancelReason = reason || '';
     await booking.save();
 
     if (io && booking.tourId) io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, scheduleId: booking.scheduleId });
+
+    return booking;
+};
+
+const completeBooking = async (bookingId) => {
+    const booking = await Booking.findOne({ _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } });
+    if (!booking) throw new Error('Booking not found or cannot be completed');
+
+    booking.status = 'COMPLETED';
+    await booking.save();
 
     return booking;
 };
@@ -211,4 +222,4 @@ const getBookingById = async (bookingId) => {
         .populate('scheduleId', 'startDate endDate');
 };
 
-module.exports = { setIO, getAvailability, holdBooking, confirmBooking, cancelBooking, releaseExpiredHolds, getAllBookings, getBookingById };
+module.exports = { setIO, getAvailability, holdBooking, confirmBooking, cancelBooking, completeBooking, releaseExpiredHolds, getAllBookings, getBookingById };
