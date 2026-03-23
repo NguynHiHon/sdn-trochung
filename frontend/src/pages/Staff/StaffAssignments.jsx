@@ -273,25 +273,37 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Assignment status (editable) */}
+                                            {/* Assignment status (editable, locked if booking is CANCELLED) */}
                                             <TableCell onClick={(e) => e.stopPropagation()}>
-                                                <FormControl size="small" sx={{ minWidth: 150 }}>
-                                                    <Select
-                                                        value={a.status}
-                                                        onChange={(e) => handleStatusChange(a._id, e.target.value)}
-                                                        renderValue={(val) => (
+                                                {booking?.status === 'CANCELLED' ? (
+                                                    <Tooltip title="Booking đã hủy, không thể thay đổi trạng thái nhiệm vụ" arrow>
+                                                        <span>
                                                             <Chip
-                                                                label={STATUS_META[val]?.label || val}
+                                                                label="Đã hủy"
                                                                 size="small"
-                                                                color={STATUS_META[val]?.color || 'default'}
+                                                                color="default"
                                                             />
-                                                        )}
-                                                    >
-                                                        {Object.entries(STATUS_META).map(([val, { label }]) => (
-                                                            <MenuItem key={val} value={val}>{label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
+                                                        </span>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                                                        <Select
+                                                            value={a.status}
+                                                            onChange={(e) => handleStatusChange(a._id, e.target.value)}
+                                                            renderValue={(val) => (
+                                                                <Chip
+                                                                    label={STATUS_META[val]?.label || val}
+                                                                    size="small"
+                                                                    color={STATUS_META[val]?.color || 'default'}
+                                                                />
+                                                            )}
+                                                        >
+                                                            {Object.entries(STATUS_META).map(([val, { label }]) => (
+                                                                <MenuItem key={val} value={val}>{label}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );
