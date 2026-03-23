@@ -1,4 +1,5 @@
-import { Box, Container, Grid, Typography, Link, IconButton, Divider } from '@mui/material';
+import { Box, Container, Grid, Typography, Link as MuiLink, IconButton, Divider } from '@mui/material';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import InstagramIcon from '@mui/icons-material/Instagram';
@@ -43,11 +44,11 @@ export default function Footer() {
                             TOURS & EXPEDITIONS
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Son Doong Expedition</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Tu Lan Cave Encounter</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Hang En Adventure</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Hang Ba Deep Jungle</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Family Tours</Link>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Son Doong Expedition</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Tu Lan Cave Encounter</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Hang En Adventure</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Hang Ba Deep Jungle</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: '#005941' } }}>Family Tours</MuiLink>
                         </Box>
                     </Grid>
 
@@ -57,11 +58,11 @@ export default function Footer() {
                             INFORMATION
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>About Us</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Our Team</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Safety Standards</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Conservation</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Careers</Link>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>About Us</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Our Team</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Safety Standards</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Conservation</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Careers</MuiLink>
                         </Box>
                     </Grid>
 
@@ -71,10 +72,11 @@ export default function Footer() {
                             SUPPORT
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>FAQs</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Booking Conditions</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Privacy Policy</Link>
-                            <Link href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Contact Us</Link>
+                            <MuiLink component={Link} to="/faqs" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>FAQs</MuiLink>
+                            <MuiLink component={Link} to="/news" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>News</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Booking Conditions</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Privacy Policy</MuiLink>
+                            <MuiLink href="#" color="inherit" underline="hover" sx={{ fontSize: '0.9rem', color: '#aaa', '&:hover': { color: 'white' } }}>Contact Us</MuiLink>
                         </Box>
                     </Grid>
                 </Grid>
