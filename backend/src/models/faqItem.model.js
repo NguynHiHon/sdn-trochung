@@ -11,6 +11,8 @@ const faqItemSchema = new Schema(
     categoryId: { type: Schema.Types.ObjectId, ref: 'FaqCategory', required: true, index: true },
     question: { type: bilingual, required: true },
     answer: { type: bilingual, required: true },
+    /** Link YouTube tuỳ chọn — hiển thị dưới nội dung trả lời */
+    youtubeUrl: { type: String, default: '', trim: true },
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }

@@ -35,6 +35,7 @@ const listArticlesPublic = async ({ categorySlug, page = 1, limit = 12 }) => {
   const [data, total] = await Promise.all([
     NewsArticle.find(filter)
       .populate('thumbnail', 'url name')
+      .populate('coverImage', 'url name')
       .populate('categoryId', 'slug name')
       .sort({ publishedAt: -1, createdAt: -1 })
       .skip(skip)
@@ -54,6 +55,7 @@ const listArticlesPublic = async ({ categorySlug, page = 1, limit = 12 }) => {
 const getArticleBySlugPublic = async (slug) => {
   return NewsArticle.findOne({ slug, status: 'published' })
     .populate('thumbnail', 'url name')
+    .populate('coverImage', 'url name')
     .populate('categoryId', 'slug name')
     .lean();
 };
@@ -64,9 +66,10 @@ const getFeed = async (perSection = 6) => {
     categories.map(async (cat) => {
       const articles = await NewsArticle.find({ categoryId: cat._id, status: 'published' })
         .populate('thumbnail', 'url name')
+        .populate('coverImage', 'url name')
         .sort({ publishedAt: -1, createdAt: -1 })
         .limit(perSection)
-        .select('slug title excerpt publishedAt thumbnail categoryId')
+        .select('slug title excerpt publishedAt thumbnail coverImage categoryId')
         .lean();
       return { category: cat, articles };
     })
@@ -89,6 +92,7 @@ const listArticlesAdmin = async ({ search, status, categoryId, page = 1, limit =
   const [data, total] = await Promise.all([
     NewsArticle.find(filter)
       .populate('thumbnail', 'url name')
+      .populate('coverImage', 'url name')
       .populate('categoryId', 'slug name')
       .sort({ updatedAt: -1 })
       .skip(skip)
@@ -103,6 +107,7 @@ const listArticlesAdmin = async ({ search, status, categoryId, page = 1, limit =
 const getArticleByIdAdmin = async (id) => {
   return NewsArticle.findById(id)
     .populate('thumbnail', 'url name')
+    .populate('coverImage', 'url name')
     .populate('categoryId', 'slug name')
     .lean();
 };
@@ -126,6 +131,7 @@ const updateArticle = async (id, data) => {
   }
   return NewsArticle.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
     .populate('thumbnail', 'url name')
+    .populate('coverImage', 'url name')
     .populate('categoryId', 'slug name');
 };
 

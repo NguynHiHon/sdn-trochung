@@ -24,7 +24,10 @@ const newsArticleSchema = new Schema(
     title: { type: bilingual, required: true },
     excerpt: bilingual,
     content: bilingual,
+    /** Link YouTube (watch / youtu.be / embed) — hiển thị nhúng video trên trang bài viết */
+    youtubeUrl: { type: String, default: "", trim: true },
     thumbnail: { type: Schema.Types.ObjectId, ref: "Media" },
+    coverImage: { type: Schema.Types.ObjectId, ref: "Media" },
     status: {
       type: String,
       enum: ["draft", "published", "archived"],

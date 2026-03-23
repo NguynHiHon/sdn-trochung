@@ -21,6 +21,7 @@ import {
   adminUpdateNewsArticle,
 } from "../../services/newsApi";
 import MediaPicker from "../../components/common/MediaPicker";
+import RichTextEditor from "../../components/common/RichTextEditor";
 
 function LangPanel({ children, value, index }) {
   return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
@@ -35,6 +36,7 @@ export default function NewsArticleForm() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState("thumbnail");
   const [form, setForm] = useState({
     categoryId: "",
     slug: "",
@@ -42,6 +44,7 @@ export default function NewsArticleForm() {
     excerpt: { vi: "", en: "" },
     content: { vi: "", en: "" },
     thumbnail: "",
+    coverImage: "",
     status: "draft",
     publishedAt: "",
   });
@@ -62,6 +65,7 @@ export default function NewsArticleForm() {
               excerpt: a.excerpt || { vi: "", en: "" },
               content: a.content || { vi: "", en: "" },
               thumbnail: a.thumbnail?._id || a.thumbnail || "",
+              coverImage: a.coverImage?._id || a.coverImage || "",
               status: a.status || "draft",
               publishedAt: a.publishedAt
                 ? new Date(a.publishedAt).toISOString().slice(0, 16)
@@ -92,6 +96,7 @@ export default function NewsArticleForm() {
     try {
       const payload = { ...form };
       if (!payload.thumbnail) delete payload.thumbnail;
+      if (!payload.coverImage) delete payload.coverImage;
       if (!payload.publishedAt) delete payload.publishedAt;
       else payload.publishedAt = new Date(payload.publishedAt);
       if (isEdit) {
@@ -200,13 +205,30 @@ export default function NewsArticleForm() {
               helperText="Tuỳ chọn — để trống khi lưu nháp"
             />
           </Grid>
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={4}>
             <Button
+              fullWidth
               variant="outlined"
               startIcon={<PhotoLibraryIcon />}
-              onClick={() => setPickerOpen(true)}
+              onClick={() => {
+                setPickerTarget("thumbnail");
+                setPickerOpen(true);
+              }}
             >
               {form.thumbnail ? "Đổi ảnh đại diện" : "Chọn ảnh đại diện"}
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<PhotoLibraryIcon />}
+              onClick={() => {
+                setPickerTarget("coverImage");
+                setPickerOpen(true);
+              }}
+            >
+              {form.coverImage ? "Đổi ảnh phông đầu bài" : "Chọn ảnh phông đầu bài"}
             </Button>
           </Grid>
         </Grid>
@@ -235,13 +257,11 @@ export default function NewsArticleForm() {
           onChange={(e) => setBi("excerpt", e.target.value)}
           sx={{ mb: 2 }}
         />
-        <TextField
-          fullWidth
-          multiline
-          rows={12}
-          label="Nội dung (có thể dán HTML đơn giản)"
+        <RichTextEditor
+          label="Nội dung"
           value={form.content.vi}
-          onChange={(e) => setBi("content", e.target.value)}
+          onChange={(v) => setBi("content", v)}
+          placeholder="Soạn thảo nội dung bài viết... (có thể chèn ảnh bằng nút image hoặc video YouTube bằng nút video)"
         />
       </LangPanel>
       <LangPanel value={langTab} index={1}>
@@ -261,13 +281,11 @@ export default function NewsArticleForm() {
           onChange={(e) => setBi("excerpt", e.target.value)}
           sx={{ mb: 2 }}
         />
-        <TextField
-          fullWidth
-          multiline
-          rows={12}
-          label="Content (plain or simple HTML)"
+        <RichTextEditor
+          label="Content"
           value={form.content.en}
-          onChange={(e) => setBi("content", e.target.value)}
+          onChange={(v) => setBi("content", v)}
+          placeholder="Article body... (you can insert images or embed a YouTube video via the video tool)"
         />
       </LangPanel>
 
@@ -275,9 +293,9 @@ export default function NewsArticleForm() {
         <MediaPicker
           open={pickerOpen}
           multiple={false}
-          defaultSelected={form.thumbnail}
+          defaultSelected={form[pickerTarget]}
           onSelect={(selectedId) => {
-            setForm((prev) => ({ ...prev, thumbnail: selectedId }));
+            setForm((prev) => ({ ...prev, [pickerTarget]: selectedId }));
           }}
           onClose={() => setPickerOpen(false)}
         />

@@ -36,6 +36,8 @@ import {
   adminUpdateFaqItem,
   adminDeleteFaqItem,
 } from "../../services/faqApi";
+import RichTextEditor from "../../components/common/RichTextEditor";
+import { isRichTextEmpty } from "../../utils/youtubeEmbed";
 
 const emptyCat = { slug: "", title: { vi: "", en: "" }, sortOrder: 0 };
 const emptyItem = {
@@ -117,15 +119,18 @@ export default function FaqManagerPage({ embedded }) {
       !itemForm.categoryId ||
       !itemForm.question.vi.trim() ||
       !itemForm.question.en.trim() ||
-      !itemForm.answer.vi.trim() ||
-      !itemForm.answer.en.trim()
+      isRichTextEmpty(itemForm.answer.vi) ||
+      isRichTextEmpty(itemForm.answer.en)
     ) {
       toast.warning("Điền đủ nhóm và Q&A (VI/EN)");
       return;
     }
     setSaving(true);
     try {
-      const p = { ...itemForm, sortOrder: Number(itemForm.sortOrder) || 0 };
+      const p = {
+        ...itemForm,
+        sortOrder: Number(itemForm.sortOrder) || 0,
+      };
       if (itemEditId) await adminUpdateFaqItem(itemEditId, p);
       else await adminCreateFaqItem(p);
       toast.success("Đã lưu");
@@ -440,11 +445,12 @@ export default function FaqManagerPage({ embedded }) {
       <Dialog
         open={itemDialog}
         onClose={() => setItemDialog(false)}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
+        PaperProps={{ sx: { overflow: "visible" } }}
       >
         <DialogTitle>{itemEditId ? "Sửa câu hỏi" : "Câu hỏi mới"}</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ overflow: "visible" }}>
           <TextField
             fullWidth
             margin="normal"
@@ -485,33 +491,29 @@ export default function FaqManagerPage({ embedded }) {
               })
             }
           />
-          <TextField
-            fullWidth
-            margin="normal"
-            multiline
-            rows={4}
+          <RichTextEditor
             label="Trả lời (VI)"
             value={itemForm.answer.vi}
-            onChange={(e) =>
+            onChange={(v) =>
               setItemForm({
                 ...itemForm,
-                answer: { ...itemForm.answer, vi: e.target.value },
+                answer: { ...itemForm.answer, vi: v },
               })
             }
+            placeholder="Nội dung trả lời... (có thể chèn ảnh/video YouTube bằng toolbar)"
+            minHeight={200}
           />
-          <TextField
-            fullWidth
-            margin="normal"
-            multiline
-            rows={4}
+          <RichTextEditor
             label="Answer (EN)"
             value={itemForm.answer.en}
-            onChange={(e) =>
+            onChange={(v) =>
               setItemForm({
                 ...itemForm,
-                answer: { ...itemForm.answer, en: e.target.value },
+                answer: { ...itemForm.answer, en: v },
               })
             }
+            placeholder="Answer... (image/YouTube video embed is supported)"
+            minHeight={200}
           />
           <TextField
             fullWidth
