@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { setupJwtInterceptors } from './config/axiosJWT'
 import { store } from './redux/store'
@@ -10,6 +10,10 @@ import ProfilePage from './pages/ProfilePage'
 import Home from './pages/Home'
 import TourDetailPage from './pages/TourDetailPage'
 import TourBookingPage from './pages/TourBookingPage'
+import NewsPage from './pages/NewsPage'
+import NewsCategoryPage from './pages/NewsCategoryPage'
+import NewsArticlePage from './pages/NewsArticlePage'
+import FaqsPage from './pages/FaqsPage'
 import MainLayout from './components/layout/MainLayout'
 
 // Staff
@@ -28,6 +32,8 @@ import TourForm from './pages/Admin/TourForm'
 import ScheduleManager from './pages/Admin/ScheduleManager'
 import BookingManager from './pages/Admin/BookingManager'
 import AccountManager from './pages/Admin/AccountManager'
+import PostsManagerPage from './pages/Admin/PostsManagerPage'
+import NewsArticleForm from './pages/Admin/NewsArticleForm'
 
 // Setup axios interceptors once
 setupJwtInterceptors(store)
@@ -47,6 +53,10 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path='/tour/:code' element={<TourDetailPage />} />
             <Route path='/tour/:code/book' element={<TourBookingPage />} />
+            <Route path='/news' element={<NewsPage />} />
+            <Route path='/news/category/:slug' element={<NewsCategoryPage />} />
+            <Route path='/news/article/:slug' element={<NewsArticlePage />} />
+            <Route path='/faqs' element={<FaqsPage />} />
             <Route path='/' element={<Home />} />
           </Route>
 
@@ -63,6 +73,12 @@ function App() {
             <Route path='schedules' element={<ScheduleManager />} />
             <Route path='bookings' element={<BookingManager />} />
             <Route path='accounts' element={<AccountManager />} />
+            <Route path='posts' element={<PostsManagerPage />} />
+            <Route path='news/categories' element={<Navigate to="/manager/posts" replace />} />
+            <Route path='news/articles' element={<Navigate to="/manager/posts" replace state={{ postsTab: 1 }} />} />
+            <Route path='faqs' element={<Navigate to="/manager/posts" replace state={{ postsTab: 2 }} />} />
+            <Route path='news/articles/create' element={<NewsArticleForm />} />
+            <Route path='news/articles/edit/:id' element={<NewsArticleForm />} />
           </Route>
 
           {/* Staff Routes */}

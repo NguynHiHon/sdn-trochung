@@ -1,15 +1,23 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const assignmentController = require('../controllers/assignment.controller');
-const middleware = require('../middlewares/authMiddleware');
+const assignmentController = require("../controllers/assignment.controller");
+const middleware = require("../middlewares/authMiddleware");
 
 // Admin: assign booking to staff
-router.post('/', middleware.verifyAdmin, assignmentController.assignBooking);
+router.post("/", middleware.verifyAdmin, assignmentController.assignBooking);
 
 // Admin + Staff: list assignments
-router.get('/', middleware.verifyAccessToken, assignmentController.getAssignments);
+router.get(
+  "/",
+  middleware.verifyAccessToken,
+  assignmentController.getAssignments,
+);
 
 // Staff: update assignment status
-router.put('/:id/status', middleware.verifyAccessToken, assignmentController.updateStatus);
+router.put(
+  "/:id/status",
+  middleware.verifyAccessToken,
+  assignmentController.updateStatus,
+);
 
 module.exports = router;
