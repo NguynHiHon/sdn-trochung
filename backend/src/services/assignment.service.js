@@ -41,7 +41,14 @@ const getAssignments = async ({ staffId, status, page = 1, limit = 20 }) => {
 
     const [data, total] = await Promise.all([
         BookingAssignment.find(filter)
-            .populate('bookingId', 'bookingCode totalGuests totalPrice contactInfo status')
+            .populate({
+                path: 'bookingId',
+                select: 'bookingCode totalGuests totalPrice contactInfo status tourId scheduleId',
+                populate: [
+                    { path: 'tourId', select: 'name code' },
+                    { path: 'scheduleId', select: 'startDate endDate' },
+                ],
+            })
             .populate('staffId', 'fullName username email phone')
             .populate('assignedBy', 'fullName username')
             .sort({ createdAt: -1 })
@@ -73,7 +80,14 @@ const updateAssignmentStatus = async (assignmentId, status, userId) => {
     }
 
     return await BookingAssignment.findById(assignmentId)
-        .populate('bookingId', 'bookingCode totalGuests totalPrice contactInfo status')
+        .populate({
+            path: 'bookingId',
+            select: 'bookingCode totalGuests totalPrice contactInfo status tourId scheduleId',
+            populate: [
+                { path: 'tourId', select: 'name code' },
+                { path: 'scheduleId', select: 'startDate endDate' },
+            ],
+        })
         .populate('staffId', 'fullName username')
         .populate('assignedBy', 'fullName username');
 };
