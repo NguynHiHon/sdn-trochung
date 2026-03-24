@@ -182,7 +182,7 @@ export default function Header() {
         if (!res.success || !res.data?.length) return;
         const fromCms = res.data.map((c) => ({
           label: { vi: c.name?.vi || c.slug, en: c.name?.en || c.slug },
-          link: c.slug === "our-blog" ? "/news" : `/news/category/${c.slug}`,
+          link: c.slug === "our-blog" ? "/news" : `/news/${c.slug}`,
         }));
         setNewsNavItem({
           title: { vi: "Tin tức", en: "News" },
