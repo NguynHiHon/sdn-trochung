@@ -75,7 +75,7 @@ const SignInPage = () => {
       <Box
         component="img"
         src="/images/hero-bg.jpg"
-        alt=""
+        alt="Cave background"
         sx={{
           position: 'absolute',
           inset: 0,
