@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,9 +6,9 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Toaster } from "sonner";
+import { useSelector, useDispatch } from "react-redux";
 import { setupJwtInterceptors } from "./config/axiosJWT";
 import { store } from "./redux/store";
-import { useSelector, useDispatch } from "react-redux";
 import { refreshAccessToken } from "./services/authService";
 import SignUpPage from "./pages/SignUpPage";
 import SignInPage from "./pages/SignInPage";
@@ -22,6 +22,7 @@ import NewsCategoryPage from "./pages/NewsCategoryPage";
 import NewsArticlePage from "./pages/NewsArticlePage";
 import FaqsPage from "./pages/FaqsPage";
 import MainLayout from "./components/layout/MainLayout";
+import ScrollToTop from "./components/common/ScrollToTop";
 
 // Staff
 import StaffLayout from "./components/layout/StaffLayout";
@@ -64,6 +65,7 @@ function App() {
     <>
       <Toaster position="top-right" richColors />
       <Router>
+        <ScrollToTop />
         <Routes>
           {/* Public Routes */}
           <Route path="/signup" element={<SignUpPage />} />
@@ -76,6 +78,7 @@ function App() {
             <Route path="/news" element={<NewsPage />} />
             <Route path="/news/category/:slug" element={<NewsCategoryPage />} />
             <Route path="/news/article/:slug" element={<NewsArticlePage />} />
+            <Route path="/news/:slug" element={<NewsArticlePage />} />
             <Route path="/faqs" element={<FaqsPage />} />
             <Route path="/" element={<Home />} />
           </Route>

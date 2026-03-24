@@ -9,6 +9,8 @@ import {
   Tabs,
   Tab,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import Grid from "@mui/material/GridLegacy";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
@@ -45,6 +47,7 @@ export default function NewsArticleForm() {
     content: { vi: "", en: "" },
     thumbnail: "",
     coverImage: "",
+    isFeatured: false,
     status: "draft",
     publishedAt: "",
   });
@@ -66,6 +69,11 @@ export default function NewsArticleForm() {
               content: a.content || { vi: "", en: "" },
               thumbnail: a.thumbnail?._id || a.thumbnail || "",
               coverImage: a.coverImage?._id || a.coverImage || "",
+              isFeatured:
+                a.isFeatured === true ||
+                a.featured === true ||
+                String(a.isFeatured).toLowerCase() === "true" ||
+                String(a.featured).toLowerCase() === "true",
               status: a.status || "draft",
               publishedAt: a.publishedAt
                 ? new Date(a.publishedAt).toISOString().slice(0, 16)
@@ -94,7 +102,12 @@ export default function NewsArticleForm() {
     }
     setSaving(true);
     try {
-      const payload = { ...form };
+      const featuredValue = Boolean(form.isFeatured);
+      const payload = {
+        ...form,
+        isFeatured: featuredValue,
+        featured: featuredValue,
+      };
       if (!payload.thumbnail) delete payload.thumbnail;
       if (!payload.coverImage) delete payload.coverImage;
       if (!payload.publishedAt) delete payload.publishedAt;
@@ -160,6 +173,20 @@ export default function NewsArticleForm() {
                 </MenuItem>
               ))}
             </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <FormControlLabel
+              sx={{ mt: 0.5 }}
+              control={
+                <Switch
+                  checked={!!form.isFeatured}
+                  onChange={(e) =>
+                    setForm({ ...form, isFeatured: e.target.checked })
+                  }
+                />
+              }
+              label="Bài nổi bật"
+            />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField

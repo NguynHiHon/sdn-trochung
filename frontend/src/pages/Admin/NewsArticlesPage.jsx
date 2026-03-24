@@ -22,10 +22,11 @@ export default function NewsArticlesPage({ embedded }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [categoryId, setCategoryId] = useState('all');
+  const [featured, setFeatured] = useState('all');
 
   const load = (p = page) => {
     setLoading(true);
-    adminListNewsArticles({ page: p, limit: 12, search, status, categoryId })
+    adminListNewsArticles({ page: p, limit: 12, search, status, categoryId, featured })
       .then((res) => {
         if (res.success) {
           setRows(res.data || []);
@@ -41,7 +42,7 @@ export default function NewsArticlesPage({ embedded }) {
     adminListNewsCategories().then((res) => { if (res.success) setCategories(res.data || []); });
   }, []);
 
-  useEffect(() => { load(1); setPage(1); }, [status, categoryId]);
+  useEffect(() => { load(1); setPage(1); }, [status, categoryId, featured]);
 
   const handleSearch = () => { setPage(1); load(1); };
 
@@ -75,6 +76,11 @@ export default function NewsArticlesPage({ embedded }) {
           <MenuItem value="all">Tất cả</MenuItem>
           {categories.map((c) => <MenuItem key={c._id} value={c._id}>{c.name?.vi || c.slug}</MenuItem>)}
         </TextField>
+        <TextField size="small" select label="Nổi bật" value={featured} onChange={(e) => setFeatured(e.target.value)} sx={{ minWidth: 140 }}>
+          <MenuItem value="all">Tất cả</MenuItem>
+          <MenuItem value="true">Nổi bật</MenuItem>
+          <MenuItem value="false">Thường</MenuItem>
+        </TextField>
         <Button variant="outlined" onClick={handleSearch}>Lọc</Button>
       </Box>
       {loading ? (
@@ -88,18 +94,20 @@ export default function NewsArticlesPage({ embedded }) {
                   <TableCell><strong>Slug</strong></TableCell>
                   <TableCell><strong>Tiêu đề (VI)</strong></TableCell>
                   <TableCell><strong>Danh mục</strong></TableCell>
+                  <TableCell><strong>Nổi bật</strong></TableCell>
                   <TableCell><strong>Trạng thái</strong></TableCell>
                   <TableCell align="right"><strong>Hành động</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} align="center">Chưa có bài</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} align="center">Chưa có bài</TableCell></TableRow>
                 ) : rows.map((r) => (
                   <TableRow key={r._id}>
                     <TableCell>{r.slug}</TableCell>
                     <TableCell>{r.title?.vi}</TableCell>
                     <TableCell>{r.categoryId?.name?.vi || '—'}</TableCell>
+                    <TableCell>{r.isFeatured ? <Chip size="small" color="warning" label="Nổi bật" /> : '—'}</TableCell>
                     <TableCell><Chip size="small" label={statusLabel[r.status] || r.status} /></TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => navigate(`/manager/news/articles/edit/${r._id}`)}><EditIcon fontSize="small" /></IconButton>
