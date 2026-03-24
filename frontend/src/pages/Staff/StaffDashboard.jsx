@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
     Box, Typography, Grid, Card, CardContent, Chip,
     CircularProgress, Avatar, Divider, Paper, Button,
-    Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
+    Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Tooltip,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -302,12 +302,23 @@ export default function StaffDashboard() {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Chip
-                                                            label={statusLabel[a.status] || a.status}
-                                                            size="small"
-                                                            color={statusColor[a.status] || 'default'}
-                                                            sx={{ fontWeight: 500 }}
-                                                        />
+                                                        {booking?.status === 'CANCELLED' ? (
+                                                            <Tooltip title="Booking đã hủy, không thể thay đổi trạng thái nhiệm vụ" arrow>
+                                                                <Chip
+                                                                    label="Đã hủy"
+                                                                    size="small"
+                                                                    color="default"
+                                                                    sx={{ fontWeight: 500 }}
+                                                                />
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Chip
+                                                                label={statusLabel[a.status] || a.status}
+                                                                size="small"
+                                                                color={statusColor[a.status] || 'default'}
+                                                                sx={{ fontWeight: 500 }}
+                                                            />
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             );
