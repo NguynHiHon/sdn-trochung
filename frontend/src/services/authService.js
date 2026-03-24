@@ -27,6 +27,8 @@ export const signInUser = async (user, dispatch, navigate) => {
         // Điều hướng theo role
         if (res.data.user.role === 'admin') {
             navigate("/admin/dashboard");
+        } else if (res.data.user.role === 'staff') {
+            navigate("/staff/dashboard");
         } else {
             navigate("/");
         }
