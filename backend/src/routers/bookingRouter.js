@@ -56,6 +56,11 @@ router.post('/booking/cancel/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
 ]), bookingController.cancelBooking);
 
+// ── POST /booking/complete/:id ──
+router.post('/booking/complete/:id', runValidation([
+    param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
+]), bookingController.completeBooking);
+
 // ── GET /bookings ──
 router.get('/bookings', bookingController.getAllBookings);
 

@@ -44,14 +44,15 @@ const bookingSchema = new mongoose.Schema({
         fullName: { type: String, required: true },
         email: { type: String, required: true },
         phone: { type: String, required: true },
-        contactMethod: { 
-            type: String, 
-            enum: ['Zalo', 'Viber', 'Email', 'WhatsApp', 'Phone', 'None'], 
-            default: 'Zalo' 
+        contactMethod: {
+            type: String,
+            enum: ['Zalo', 'Viber', 'Email', 'WhatsApp', 'Phone', 'None'],
+            default: 'Zalo'
         },
         address: { type: String },
         specialRequest: { type: String }
-    }
+    },
+    cancelReason: { type: String, default: '' },
 }, {
     timestamps: true
 });

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,8 +6,10 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Toaster } from "sonner";
+import { useSelector, useDispatch } from "react-redux";
 import { setupJwtInterceptors } from "./config/axiosJWT";
 import { store } from "./redux/store";
+import { refreshAccessToken } from "./services/authService";
 import SignUpPage from "./pages/SignUpPage";
 import SignInPage from "./pages/SignInPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -15,6 +17,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
 import TourDetailPage from "./pages/TourDetailPage";
 import TourBookingPage from "./pages/TourBookingPage";
+import NewsPage from "./pages/NewsPage";
 import NewsCategoryPage from "./pages/NewsCategoryPage";
 import NewsArticlePage from "./pages/NewsArticlePage";
 import FaqsPage from "./pages/FaqsPage";
@@ -23,6 +26,7 @@ import ScrollToTop from "./components/common/ScrollToTop";
 
 // Staff
 import StaffLayout from "./components/layout/StaffLayout";
+import StaffDashboard from "./pages/Staff/StaffDashboard";
 import StaffAssignments from "./pages/Staff/StaffAssignments";
 import StaffTours from "./pages/Staff/StaffTours";
 
@@ -44,6 +48,19 @@ import NewsArticleForm from "./pages/Admin/NewsArticleForm";
 setupJwtInterceptors(store);
 
 function App() {
+  const dispatch = useDispatch();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const accessToken = useSelector((state) => state.token.accessToken);
+
+  // Khi reload trang: user vẫn đăng nhập (auth persist) nhưng token mất → tự refresh
+  useEffect(() => {
+    if (isAuthenticated && !accessToken) {
+      refreshAccessToken(dispatch).catch(() => {
+        // Refresh thất bại → đã logout trong service
+      });
+    }
+  }, [isAuthenticated, accessToken, dispatch]);
+
   return (
     <>
       <Toaster position="top-right" richColors />
@@ -58,7 +75,7 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/tour/:code" element={<TourDetailPage />} />
             <Route path="/tour/:code/book" element={<TourBookingPage />} />
-            <Route path="/news" element={<NewsCategoryPage />} />
+            <Route path="/news" element={<NewsPage />} />
             <Route path="/news/category/:slug" element={<NewsCategoryPage />} />
             <Route path="/news/article/:slug" element={<NewsArticlePage />} />
             <Route path="/news/:slug" element={<NewsArticlePage />} />
@@ -105,7 +122,7 @@ function App() {
 
           {/* Staff Routes */}
           <Route path="/staff" element={<StaffLayout />}>
-            <Route index element={<StaffAssignments />} />
+            <Route index element={<StaffDashboard />} />
             <Route path="assignments" element={<StaffAssignments />} />
             <Route path="tours" element={<StaffTours />} />
           </Route>

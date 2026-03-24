@@ -89,13 +89,27 @@ const confirmBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body.userId; 
+        const userId = req.user?._id || req.body.userId;
+        const { reason } = req.body;
 
-        const cancelledBooking = await bookingService.cancelBooking(id, userId);
+        const cancelledBooking = await bookingService.cancelBooking(id, userId, reason);
         res.status(200).json({ success: true, data: cancelledBooking, message: 'Booking cancelled successfully' });
     } catch (error) {
         if (error.message === 'Booking not found') {
             return res.status(404).json({ success: false, message: error.message });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const completeBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const completedBooking = await bookingService.completeBooking(id);
+        res.status(200).json({ success: true, data: completedBooking, message: 'Booking completed successfully' });
+    } catch (error) {
+        if (error.message.includes('not found') || error.message.includes('cannot')) {
+            return res.status(400).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: error.message });
     }
@@ -125,6 +139,7 @@ module.exports = {
     holdBooking,
     confirmBooking,
     cancelBooking,
+    completeBooking,
     getAllBookings,
     getBookingById
 };
