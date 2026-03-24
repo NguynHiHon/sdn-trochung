@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const mediaController = require('../controllers/media.controller');
+const middleware = require('../middlewares/authMiddleWare');
 
-// Đăng ký các endpoints
-// Có thể thêm middleware auth ở đây nếu cần cho admin
+// Public routes - anyone can view media
 router.get('/', mediaController.getAllMedia);
 router.get('/:id', mediaController.getMediaById);
-router.post('/', mediaController.createMedia);
-router.put('/:id', mediaController.updateMedia);
-router.delete('/:id', mediaController.deleteMedia);
+
+// Admin only routes - create, update, delete media
+router.post('/', middleware.verifyAdmin, mediaController.createMedia);
+router.put('/:id', middleware.verifyAdmin, mediaController.updateMedia);
+router.delete('/:id', middleware.verifyAdmin, mediaController.deleteMedia);
 
 module.exports = router;

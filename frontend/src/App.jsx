@@ -30,6 +30,7 @@ import StaffLayout from "./components/layout/StaffLayout";
 import StaffDashboard from "./pages/Staff/StaffDashboard";
 import StaffAssignments from "./pages/Staff/StaffAssignments";
 import StaffTours from "./pages/Staff/StaffTours";
+import StaffProfile from "./pages/Staff/StaffProfile";
 
 // Admin
 import AdminLayout from "./components/layout/AdminLayout";
@@ -44,6 +45,7 @@ import BookingManager from "./pages/Admin/BookingManager";
 import AccountManager from "./pages/Admin/AccountManager";
 import PostsManagerPage from "./pages/Admin/PostsManagerPage";
 import NewsArticleForm from "./pages/Admin/NewsArticleForm";
+import AdminProfile from "./pages/Admin/AdminProfile";
 
 // Setup axios interceptors once
 setupJwtInterceptors(store);
@@ -92,6 +94,7 @@ function App() {
           {/* Manager Routes */}
           <Route path="/manager" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="profile" element={<AdminProfile />} />
             <Route path="media" element={<MediaManager />} />
             <Route path="caves" element={<CaveManager />} />
             <Route path="caves/create" element={<CaveForm />} />
@@ -129,6 +132,7 @@ function App() {
           {/* Staff Routes */}
           <Route path="/staff" element={<StaffLayout />}>
             <Route index element={<StaffDashboard />} />
+            <Route path="profile" element={<StaffProfile />} />
             <Route path="assignments" element={<StaffAssignments />} />
             <Route path="tours" element={<StaffTours />} />
           </Route>

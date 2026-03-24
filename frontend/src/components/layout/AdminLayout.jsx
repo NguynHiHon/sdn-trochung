@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import {
   Box,
   Drawer,
@@ -20,6 +20,9 @@ import {
   CircularProgress,
   Button,
   Chip,
+  Menu,
+  MenuItem,
+  ListItemIcon as MenuItemIcon,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import CollectionsIcon from "@mui/icons-material/Collections";
@@ -32,6 +35,8 @@ import PeopleIcon from "@mui/icons-material/People";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import LogoutIcon from "@mui/icons-material/Logout";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { io } from "socket.io-client";
 import {
   getMyNotifications,
@@ -39,6 +44,7 @@ import {
   markAsRead,
   markAllAsRead,
 } from "../../services/notificationApi";
+import { signOutUser } from "../../services/authService";
 
 const drawerWidth = 260;
 const SOCKET_URL =
@@ -48,6 +54,7 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
   const currentUser = useSelector((state) => state.auth.currentUser);
   const accessToken = useSelector((state) => state.token.accessToken);
 
@@ -57,8 +64,53 @@ export default function AdminLayout() {
   const [notifAnchor, setNotifAnchor] = useState(null);
   const [notifLoading, setNotifLoading] = useState(false);
 
+  // Avatar dropdown state
+  const [avatarAnchor, setAvatarAnchor] = useState(null);
+
+  // Check authentication on mount and token changes
+  useEffect(() => {
+    const token = accessToken || localStorage.getItem("accessToken");
+    if (!token || !currentUser) {
+      navigate("/signin", { replace: true });
+      return;
+    }
+
+    // Verify user role
+    if (currentUser.role !== "admin") {
+      navigate("/", { replace: true });
+      return;
+    }
+  }, [accessToken, currentUser, navigate]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  // Avatar dropdown handlers
+  const handleOpenAvatarMenu = (event) => {
+    setAvatarAnchor(event.currentTarget);
+  };
+
+  const handleCloseAvatarMenu = () => {
+    setAvatarAnchor(null);
+  };
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await signOutUser(dispatch, navigate);
+      handleCloseAvatarMenu();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Even if logout API fails, still clear frontend state
+      handleCloseAvatarMenu();
+    }
+  };
+
+  // Profile handler
+  const handleProfile = () => {
+    navigate("/manager/profile");
+    handleCloseAvatarMenu();
   };
 
   // Fetch unread count initially
@@ -67,7 +119,7 @@ export default function AdminLayout() {
       .then((res) => {
         if (res.success) setUnreadCount(res.count);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Socket.IO connection
@@ -212,10 +264,10 @@ export default function AdminLayout() {
         {menuItems.map((item) => {
           const selected = item.matchPaths
             ? item.matchPaths.some(
-                (p) =>
-                  location.pathname === p ||
-                  location.pathname.startsWith(p + "/"),
-              )
+              (p) =>
+                location.pathname === p ||
+                location.pathname.startsWith(p + "/"),
+            )
             : location.pathname === item.path;
           return (
             <ListItem key={item.text} disablePadding>
@@ -289,9 +341,43 @@ export default function AdminLayout() {
             </Badge>
           </IconButton>
 
-          <Avatar sx={{ bgcolor: "#2b6f56" }}>AD</Avatar>
+          <IconButton onClick={handleOpenAvatarMenu} sx={{ p: 0 }}>
+            <Avatar sx={{ bgcolor: "#2b6f56" }}>AD</Avatar>
+          </IconButton>
         </Toolbar>
       </AppBar>
+
+      {/* Avatar Dropdown Menu */}
+      <Menu
+        anchorEl={avatarAnchor}
+        open={Boolean(avatarAnchor)}
+        onClose={handleCloseAvatarMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            "& .MuiMenuItem-root": {
+              px: 2,
+              py: 1,
+              minWidth: 150,
+            },
+          },
+        }}
+      >
+        <MenuItem onClick={handleProfile}>
+          <MenuItemIcon>
+            <AccountCircleIcon fontSize="small" />
+          </MenuItemIcon>
+          Hồ sơ
+        </MenuItem>
+        <MenuItem onClick={handleLogout} sx={{ color: "#d32f2f" }}>
+          <MenuItemIcon>
+            <LogoutIcon fontSize="small" sx={{ color: "#d32f2f" }} />
+          </MenuItemIcon>
+          Đăng xuất
+        </MenuItem>
+      </Menu>
 
       {/* Notification Popover */}
       <Popover
