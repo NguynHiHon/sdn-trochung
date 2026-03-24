@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -19,6 +19,8 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import ExploreIcon from "@mui/icons-material/Explore";
+import { connectSocket, disconnectSocket } from "../../config/socketClient";
+import StaffNotificationBell from "../staff/StaffNotificationBell";
 
 const drawerWidth = 240;
 
@@ -27,6 +29,15 @@ export default function StaffLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = useSelector((state) => state.auth.currentUser);
+
+  useEffect(() => {
+    if (currentUser?._id) {
+      connectSocket(currentUser._id, currentUser.role || "staff");
+    }
+    return () => {
+      disconnectSocket();
+    };
+  }, [currentUser?._id]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -121,7 +132,8 @@ export default function StaffLayout() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Khu vực Nhân viên
           </Typography>
-          <Avatar sx={{ bgcolor: "#2b6f56" }}>
+          <StaffNotificationBell />
+          <Avatar sx={{ bgcolor: "#2b6f56", ml: 1 }}>
             {(currentUser?.fullName || currentUser?.username || "NV")
               .charAt(0)
               .toUpperCase()}
