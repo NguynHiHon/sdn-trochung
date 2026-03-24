@@ -17,8 +17,24 @@ import { getAllMedia } from '../../services/mediaApi';
  * @param {function} onSelect Confirm selection callback: receives (selectedIds, selectedItems)
  * @param {boolean} multiple Array selection for multiple images (gallery)
  * @param {array} defaultSelected Array of selected IDs
+ * @param {boolean} nested Mở trong Dialog khác — tránh kẹt focus / không bấm được (FAQ, form lồng)
  */
-export default function MediaPicker({ open, onClose, onSelect, multiple = false, defaultSelected = [] }) {
+function normalizeSelectedIds(defaultSelected) {
+  if (defaultSelected == null || defaultSelected === "") return [];
+  if (Array.isArray(defaultSelected)) {
+    return defaultSelected.map((x) => String(x)).filter(Boolean);
+  }
+  return [String(defaultSelected)];
+}
+
+export default function MediaPicker({
+  open,
+  onClose,
+  onSelect,
+  multiple = false,
+  defaultSelected = [],
+  nested = false,
+}) {
   const [mediaList, setMediaList] = useState([]);
   const [filteredList, setFilteredList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,7 +46,7 @@ export default function MediaPicker({ open, onClose, onSelect, multiple = false,
   useEffect(() => {
     if (open) {
       fetchMedia();
-      setSelectedIds(Array.isArray(defaultSelected) ? [...defaultSelected] : (defaultSelected ? [defaultSelected] : []));
+      setSelectedIds(normalizeSelectedIds(defaultSelected));
     }
   }, [open, defaultSelected]);
 
@@ -57,30 +73,39 @@ export default function MediaPicker({ open, onClose, onSelect, multiple = false,
   };
 
   const toggleSelect = (img) => {
+    const idStr = String(img._id);
     if (multiple) {
-      if (selectedIds.includes(img._id)) {
-        setSelectedIds(prev => prev.filter(id => id !== img._id));
+      if (selectedIds.includes(idStr)) {
+        setSelectedIds((prev) => prev.filter((id) => id !== idStr));
       } else {
-        setSelectedIds(prev => [...prev, img._id]);
+        setSelectedIds((prev) => [...prev, idStr]);
       }
     } else {
-      // Single selection mode
-      setSelectedIds([img._id]);
+      setSelectedIds([idStr]);
     }
   };
 
   const handleConfirm = () => {
-    const selectedItems = mediaList.filter(m => selectedIds.includes(m._id));
+    const selectedItems = mediaList.filter((m) => selectedIds.includes(String(m._id)));
     if (multiple) {
       onSelect(selectedIds, selectedItems);
     } else {
-      onSelect(selectedIds[0] || null, selectedItems[0] || null);
+      const sid = selectedIds[0] || null;
+      onSelect(sid, selectedItems[0] || null);
     }
     onClose();
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      disableEnforceFocus={nested}
+      disableAutoFocus={nested}
+      sx={nested ? { zIndex: 2000 } : undefined}
+    >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
         <Typography variant="h6" fontWeight="bold">Chọn Hình Ảnh {multiple ? '(Nhiều ảnh)' : ''}</Typography>
         <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
@@ -104,8 +129,8 @@ export default function MediaPicker({ open, onClose, onSelect, multiple = false,
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>
         ) : (
           <Grid container spacing={2}>
-            {filteredList.map(img => {
-              const isSelected = selectedIds.includes(img._id);
+            {filteredList.map((img) => {
+              const isSelected = selectedIds.includes(String(img._id));
               return (
                 <Grid item xs={6} sm={4} md={3} key={img._id}>
                   <Card

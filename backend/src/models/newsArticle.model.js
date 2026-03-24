@@ -28,6 +28,9 @@ const newsArticleSchema = new Schema(
     youtubeUrl: { type: String, default: "", trim: true },
     thumbnail: { type: Schema.Types.ObjectId, ref: "Media" },
     coverImage: { type: Schema.Types.ObjectId, ref: "Media" },
+    isFeatured: { type: Boolean, default: false, index: true },
+    // Backward-compatible mirror field for older data/query paths.
+    featured: { type: Boolean, default: false, index: true },
     status: {
       type: String,
       enum: ["draft", "published", "archived"],

@@ -24,20 +24,43 @@ const deleteCategory = async (id) => {
   return NewsCategory.findByIdAndDelete(id);
 };
 
-const listArticlesPublic = async ({ categorySlug, page = 1, limit = 12 }) => {
+const listArticlesPublic = async ({
+  categorySlug,
+  page = 1,
+  limit = 12,
+  featured,
+  sort = 'latest',
+}) => {
   const filter = { status: 'published' };
+  if (typeof featured === 'string') {
+    if (featured === 'true') {
+      filter.$or = [{ isFeatured: true }, { featured: true }];
+    }
+    if (featured === 'false') {
+      filter.$and = [
+        { $or: [{ isFeatured: false }, { isFeatured: { $exists: false } }] },
+        { $or: [{ featured: false }, { featured: { $exists: false } }] },
+      ];
+    }
+  }
   if (categorySlug) {
     const cat = await NewsCategory.findOne({ slug: categorySlug });
     if (!cat) return { data: [], total: 0, page: 1, totalPages: 0 };
     filter.categoryId = cat._id;
   }
   const skip = (Number(page) - 1) * Number(limit);
+  // latest: ưu tiên ngày đăng (publishedAt) → bài vừa xuất bản lên ô 1 lưới; tie-break createdAt
+  // oldest: bài đăng sớm nhất trước
+  const sortQuery =
+    sort === 'oldest'
+      ? { publishedAt: 1, createdAt: 1, _id: 1 }
+      : { publishedAt: -1, createdAt: -1, _id: -1 };
   const [data, total] = await Promise.all([
     NewsArticle.find(filter)
       .populate('thumbnail', 'url name')
       .populate('coverImage', 'url name')
       .populate('categoryId', 'slug name')
-      .sort({ publishedAt: -1, createdAt: -1 })
+      .sort(sortQuery)
       .skip(skip)
       .limit(Number(limit))
       .lean(),
@@ -77,10 +100,28 @@ const getFeed = async (perSection = 6) => {
   return sections;
 };
 
-const listArticlesAdmin = async ({ search, status, categoryId, page = 1, limit = 20 }) => {
+const listArticlesAdmin = async ({
+  search,
+  status,
+  categoryId,
+  featured,
+  page = 1,
+  limit = 20,
+}) => {
   const filter = {};
   if (status && status !== 'all') filter.status = status;
   if (categoryId && categoryId !== 'all') filter.categoryId = categoryId;
+  if (typeof featured === 'string') {
+    if (featured === 'true') {
+      filter.$or = [{ isFeatured: true }, { featured: true }];
+    }
+    if (featured === 'false') {
+      filter.$and = [
+        { $or: [{ isFeatured: false }, { isFeatured: { $exists: false } }] },
+        { $or: [{ featured: false }, { featured: { $exists: false } }] },
+      ];
+    }
+  }
   if (search) {
     filter.$or = [
       { slug: { $regex: search, $options: 'i' } },
@@ -114,6 +155,16 @@ const getArticleByIdAdmin = async (id) => {
 
 const createArticle = async (data) => {
   const payload = { ...data };
+  if (typeof payload.isFeatured === 'string') {
+    payload.isFeatured = payload.isFeatured === 'true';
+  }
+  if (typeof payload.featured === 'string') {
+    payload.featured = payload.featured === 'true';
+  }
+  if (typeof payload.isFeatured !== 'boolean') {
+    payload.isFeatured = Boolean(payload.featured);
+  }
+  payload.featured = Boolean(payload.isFeatured);
   if (payload.status === 'published' && !payload.publishedAt) {
     payload.publishedAt = new Date();
   }
@@ -123,10 +174,27 @@ const createArticle = async (data) => {
 
 const updateArticle = async (id, data) => {
   const payload = { ...data };
+  if (typeof payload.isFeatured === 'string') {
+    payload.isFeatured = payload.isFeatured === 'true';
+  }
+  if (typeof payload.featured === 'string') {
+    payload.featured = payload.featured === 'true';
+  }
+  if (typeof payload.isFeatured !== 'boolean') {
+    payload.isFeatured = Boolean(payload.featured);
+  }
+  payload.featured = Boolean(payload.isFeatured);
   if (payload.status === 'published') {
-    const existing = await NewsArticle.findById(id).select('publishedAt status');
+    const existing = await NewsArticle.findById(id).select('publishedAt status createdAt');
     if (existing && existing.status !== 'published' && !payload.publishedAt) {
       payload.publishedAt = new Date();
+    } else if (
+      existing?.status === 'published' &&
+      !existing.publishedAt &&
+      (payload.publishedAt === undefined || payload.publishedAt === null)
+    ) {
+      // Dữ liệu cũ thiếu publishedAt — lần sửa đầu gán theo createdAt để thứ tự lưới ổn định
+      payload.publishedAt = existing.createdAt || new Date();
     }
   }
   return NewsArticle.findByIdAndUpdate(id, payload, { new: true, runValidators: true })
