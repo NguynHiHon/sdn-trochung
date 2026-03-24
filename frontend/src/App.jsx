@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useParams,
 } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useSelector, useDispatch } from "react-redux";
@@ -47,6 +48,11 @@ import NewsArticleForm from "./pages/Admin/NewsArticleForm";
 // Setup axios interceptors once
 setupJwtInterceptors(store);
 
+function RedirectLegacyNewsCategory() {
+  const { slug } = useParams();
+  return <Navigate to={`/news/${slug || ""}`} replace />;
+}
+
 function App() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
@@ -76,9 +82,9 @@ function App() {
             <Route path="/tour/:code" element={<TourDetailPage />} />
             <Route path="/tour/:code/book" element={<TourBookingPage />} />
             <Route path="/news" element={<NewsPage />} />
-            <Route path="/news/category/:slug" element={<NewsCategoryPage />} />
+            <Route path="/news/category/:slug" element={<RedirectLegacyNewsCategory />} />
+            <Route path="/news/:categorySlug" element={<NewsCategoryPage />} />
             <Route path="/news/article/:slug" element={<NewsArticlePage />} />
-            <Route path="/news/:slug" element={<NewsArticlePage />} />
             <Route path="/faqs" element={<FaqsPage />} />
             <Route path="/" element={<Home />} />
           </Route>

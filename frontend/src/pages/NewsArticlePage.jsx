@@ -142,7 +142,18 @@ export default function NewsArticlePage() {
         return `<figure class="article-figure">${imageParagraph}<figcaption>${rawCaption}</figcaption></figure>`;
       },
     );
-    return replaceYoutubeLinksWithEmbeds(withFigureCaptions);
+    const withImageGrid = withFigureCaptions.replaceAll(
+      /(?:<p[^>]*>\s*<img[^>]*>\s*<\/p>\s*){2,}/gi,
+      (block) => {
+        const imageParagraphs = block.match(/<p[^>]*>\s*<img[^>]*>\s*<\/p>/gi) || [];
+        if (imageParagraphs.length < 2) return block;
+        const cells = imageParagraphs
+          .map((paragraph) => `<div class="article-image-cell">${paragraph}</div>`)
+          .join("");
+        return `<div class="article-image-grid">${cells}</div>`;
+      },
+    );
+    return replaceYoutubeLinksWithEmbeds(withImageGrid);
   }, [isHtml, normalizedBody]);
 
   if (loading) {
@@ -360,6 +371,19 @@ export default function NewsArticlePage() {
                     color: "rgba(0,0,0,0.72)",
                     fontSize: "0.96rem",
                     lineHeight: 1.5,
+                  },
+                  "& .article-image-grid": {
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 1.25,
+                    margin: "0.9rem 0 1.1rem",
+                    alignItems: "start",
+                  },
+                  "& .article-image-cell > p": { margin: 0 },
+                  "& .article-image-cell img": {
+                    width: "100%",
+                    margin: 0,
+                    display: "block",
                   },
                   "& .ql-video": {
                     width: "100%",

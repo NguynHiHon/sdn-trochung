@@ -288,7 +288,7 @@ export default function NewsArticleForm() {
           label="Nội dung"
           value={form.content.vi}
           onChange={(v) => setBi("content", v)}
-          placeholder="Soạn thảo nội dung bài viết... (có thể chèn ảnh bằng nút image hoặc video YouTube bằng nút video)"
+          placeholder="Soạn thảo nội dung bài viết... (có thể chèn ảnh bằng nút image hoặc video YouTube bằng nút video; nhiều ảnh liên tiếp sẽ tự hiển thị dạng lưới ở trang xem)"
         />
       </LangPanel>
       <LangPanel value={langTab} index={1}>
@@ -312,7 +312,7 @@ export default function NewsArticleForm() {
           label="Content"
           value={form.content.en}
           onChange={(v) => setBi("content", v)}
-          placeholder="Article body... (you can insert images or embed a YouTube video via the video tool)"
+          placeholder="Article body... (you can insert images or embed a YouTube video via the video tool; consecutive images will be shown as a grid on the public page)"
         />
       </LangPanel>
 

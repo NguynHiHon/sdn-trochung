@@ -43,9 +43,25 @@ export default function NewsPage() {
     setArticles([]);
     setTotalPages(1);
     Promise.all([
-      getNewsArticles({ featured: "true", sort: "latest", page: 1, limit: 5 }),
-      getNewsArticles({ featured: "false", sort: "latest", page: 1, limit: GRID_ROW }),
-      getNewsArticles({ featured: "false", sort: "latest", page: 2, limit: GRID_ROW }),
+      getNewsArticles({
+        categorySlug: "our-blog",
+        featured: "true",
+        sort: "latest",
+        page: 1,
+        limit: 5,
+      }),
+      getNewsArticles({
+        categorySlug: "our-blog",
+        sort: "latest",
+        page: 1,
+        limit: GRID_ROW,
+      }),
+      getNewsArticles({
+        categorySlug: "our-blog",
+        sort: "latest",
+        page: 2,
+        limit: GRID_ROW,
+      }),
     ])
       .then(([featuredRes, normalRes1, normalRes2]) => {
         if (cancelled) return;
@@ -81,7 +97,12 @@ export default function NewsPage() {
     setLoadingMore(true);
     const nextPage = listPage + 1;
     try {
-      const res = await getNewsArticles({ featured: "false", sort: "latest", page: nextPage, limit: GRID_ROW });
+      const res = await getNewsArticles({
+        categorySlug: "our-blog",
+        sort: "latest",
+        page: nextPage,
+        limit: GRID_ROW,
+      });
       if (res.success) {
         const chunk = res.data || [];
         setArticles((prev) => {

@@ -17,8 +17,8 @@ import { getNewsArticles, getNewsCategories } from "../services/newsApi";
 const PAGE_SIZE = 9;
 
 export default function NewsCategoryPage() {
-  const { slug } = useParams();
-  const categorySlug = slug || "our-blog";
+  const { categorySlug: categorySlugParam, slug: legacySlug } = useParams();
+  const categorySlug = categorySlugParam || legacySlug || "our-blog";
   const { i18n } = useTranslation();
   const lang = i18n.language === "en" ? "en" : "vi";
   const [categoryName, setCategoryName] = useState("");
@@ -39,10 +39,7 @@ export default function NewsCategoryPage() {
   }, [categorySlug, lang]);
 
   useEffect(() => {
-    if (categorySlug !== "our-blog") {
-      setFeaturedArticles([]);
-      return;
-    }
+    let cancelled = false;
     getNewsArticles({
       categorySlug,
       featured: "true",
@@ -51,9 +48,14 @@ export default function NewsCategoryPage() {
       limit: 5,
     })
       .then((res) => {
+        if (cancelled) return;
         if (res.success) setFeaturedArticles(res.data || []);
+        else setFeaturedArticles([]);
       })
       .catch(() => setFeaturedArticles([]));
+    return () => {
+      cancelled = true;
+    };
   }, [categorySlug]);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export default function NewsCategoryPage() {
               letterSpacing: "-0.02em",
             }}
           >
-            {categoryName || slug}
+            {categoryName || categorySlug || (lang === "vi" ? "Tin tức" : "Our blog")}
           </Typography>
           <Box
             sx={{
@@ -148,7 +150,7 @@ export default function NewsCategoryPage() {
             }}
           />
         </Box>
-        {categorySlug === "our-blog" && featuredArticles.length > 0 ? (
+        {featuredArticles.length > 0 ? (
           <Box sx={{ mb: { xs: 5, md: 6.5 } }}>
             <Grid container spacing={3}>
               {primaryFeatured ? (
@@ -165,7 +167,7 @@ export default function NewsCategoryPage() {
                   >
                     <CardActionArea
                       component={Link}
-                      to={`/news/${primaryFeatured.slug}`}
+                      to={`/news/article/${primaryFeatured.slug}`}
                       sx={{
                         height: "100%",
                         display: "flex",
@@ -241,7 +243,7 @@ export default function NewsCategoryPage() {
                     >
                       <CardActionArea
                         component={Link}
-                        to={`/news/${a.slug}`}
+                        to={`/news/article/${a.slug}`}
                         sx={{
                           p: 1.2,
                           display: "flex",
@@ -340,7 +342,7 @@ export default function NewsCategoryPage() {
                   >
                     <CardActionArea
                       component={Link}
-                      to={`/news/${a.slug}`}
+                      to={`/news/article/${a.slug}`}
                       sx={{
                         height: "100%",
                         display: "flex",
