@@ -53,6 +53,14 @@ const participantSchema = new Schema(
             }
         },
 
+        // Trạng thái phục vụ
+        status: {
+            type: String,
+            enum: ['active', 'completed', 'cancelled'],
+            default: 'active',
+        },
+        cancelReason: { type: String, default: '' },
+
         // Yêu cầu & Tùy chọn (Options & Preferences)
         preferences: {
             allergies: { type: String, default: '' }, // Dị ứng thực phẩm/côn trùng/thời tiết

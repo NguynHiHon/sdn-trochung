@@ -17,6 +17,7 @@ import {
   Avatar,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import ExploreIcon from "@mui/icons-material/Explore";
 import { connectSocket, disconnectSocket } from "../../config/socketClient";
@@ -44,6 +45,7 @@ export default function StaffLayout() {
   };
 
   const menuItems = [
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/staff" },
     {
       text: "Tư vấn khách hàng",
       icon: <AssignmentIcon />,
@@ -66,41 +68,40 @@ export default function StaffLayout() {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-              sx={{
-                "&.Mui-selected": {
-                  backgroundColor: "rgba(43,111,86,0.08)",
-                  borderRight: "3px solid #2b6f56",
-                },
-              }}
-            >
-              <ListItemIcon
+        {menuItems.map((item) => {
+          const isActive =
+            item.path === "/staff"
+              ? location.pathname === "/staff"
+              : location.pathname === item.path;
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={isActive}
+                onClick={() => {
+                  navigate(item.path);
+                  setMobileOpen(false);
+                }}
                 sx={{
-                  color:
-                    location.pathname === item.path ? "#2b6f56" : "inherit",
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(43,111,86,0.08)",
+                    borderRight: "3px solid #2b6f56",
+                  },
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={item.text}
-                primaryTypographyProps={{
-                  fontWeight:
-                    location.pathname === item.path ? "bold" : "normal",
-                  color:
-                    location.pathname === item.path ? "#2b6f56" : "inherit",
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
+                <ListItemIcon sx={{ color: isActive ? "#2b6f56" : "inherit" }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: isActive ? "bold" : "normal",
+                    color: isActive ? "#2b6f56" : "inherit",
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
     </div>
   );
