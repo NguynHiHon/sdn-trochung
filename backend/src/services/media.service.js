@@ -5,12 +5,15 @@ const Media = require('../models/media.model');
  */
 const getAllMedia = async ({ search, type, page = 1, limit = 12 }) => {
   const filter = {};
-  
+
   // Tối ưu dùng Server-Side filter
   if (search) {
-    filter.name = { $regex: search, $options: 'i' };
+    filter.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { title: { $regex: search, $options: 'i' } },
+    ];
   }
-  
+
   if (type && type !== 'all') {
     filter.type = type;
   }
@@ -50,7 +53,10 @@ const createMedia = async (data) => {
  * Cập nhật thông tin ảnh
  */
 const updateMediaById = async (id, updateData) => {
-  return await Media.findByIdAndUpdate(id, updateData, { new: true });
+  const payload = { ...updateData };
+  if (typeof payload.name === 'string') payload.name = payload.name.trim();
+  if (typeof payload.title === 'string') payload.title = payload.title.trim();
+  return await Media.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 };
 
 /**

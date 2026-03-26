@@ -1,5 +1,39 @@
 const Tour = require('../models/tour.model');
 
+const VALID_TOUR_TYPES = ['multiday', 'overnight', 'daytour', 'family'];
+const VALID_STATUSES = ['draft', 'published', 'archived'];
+
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+
+const validateBasicTourInfo = (tourData) => {
+  const errors = [];
+
+  if (!isNonEmptyString(tourData?.name?.vi)) errors.push('Tên tour (VI)');
+  if (!isNonEmptyString(tourData?.name?.en)) errors.push('Tên tour (EN)');
+  if (!isNonEmptyString(tourData?.description?.vi)) errors.push('Mô tả ngắn (VI)');
+  if (!isNonEmptyString(tourData?.description?.en)) errors.push('Mô tả ngắn (EN)');
+  if (!isNonEmptyString(tourData?.code)) errors.push('Mã tour');
+  if (!isNonEmptyString(tourData?.slug)) errors.push('Slug');
+
+  const priceVND = Number(tourData?.priceVND);
+  if (!Number.isFinite(priceVND) || priceVND <= 0) errors.push('Giá (VND) > 0');
+
+  const durationDays = Number(tourData?.durationDays);
+  if (!Number.isFinite(durationDays) || durationDays <= 0) errors.push('Số ngày > 0');
+
+  const adventureLevel = Number(tourData?.adventureLevel);
+  if (!Number.isInteger(adventureLevel) || adventureLevel < 1 || adventureLevel > 6) {
+    errors.push('Độ khó từ 1 đến 6');
+  }
+
+  if (!VALID_TOUR_TYPES.includes(tourData?.tourType)) errors.push('Loại tour');
+  if (!VALID_STATUSES.includes(tourData?.status)) errors.push('Trạng thái');
+
+  if (errors.length > 0) {
+    throw new Error(`Thông số cơ bản không hợp lệ: ${errors.join(', ')}`);
+  }
+};
+
 const getAllTours = async ({ search, categoryId, caveId, status, tourType, page = 1, limit = 12 }) => {
   const filter = {};
 
@@ -56,7 +90,38 @@ const createTour = async (data) => {
 };
 
 const updateTourById = async (id, updateData) => {
-  return await Tour.findByIdAndUpdate(id, updateData, { new: true })
+  const existingTour = await Tour.findById(id);
+  if (!existingTour) return null;
+
+  const normalizedUpdate = { ...updateData };
+  if (normalizedUpdate.code !== undefined && typeof normalizedUpdate.code === 'string') {
+    normalizedUpdate.code = normalizedUpdate.code.trim();
+  }
+  if (normalizedUpdate.slug !== undefined && typeof normalizedUpdate.slug === 'string') {
+    normalizedUpdate.slug = normalizedUpdate.slug.trim();
+  }
+
+  const tourForValidation = {
+    name: {
+      vi: normalizedUpdate?.name?.vi ?? existingTour?.name?.vi,
+      en: normalizedUpdate?.name?.en ?? existingTour?.name?.en,
+    },
+    description: {
+      vi: normalizedUpdate?.description?.vi ?? existingTour?.description?.vi,
+      en: normalizedUpdate?.description?.en ?? existingTour?.description?.en,
+    },
+    code: normalizedUpdate?.code ?? existingTour?.code,
+    slug: normalizedUpdate?.slug ?? existingTour?.slug,
+    priceVND: normalizedUpdate?.priceVND ?? existingTour?.priceVND,
+    durationDays: normalizedUpdate?.durationDays ?? existingTour?.durationDays,
+    adventureLevel: normalizedUpdate?.adventureLevel ?? existingTour?.adventureLevel,
+    tourType: normalizedUpdate?.tourType ?? existingTour?.tourType,
+    status: normalizedUpdate?.status ?? existingTour?.status,
+  };
+
+  validateBasicTourInfo(tourForValidation);
+
+  return await Tour.findByIdAndUpdate(id, normalizedUpdate, { new: true, runValidators: true, context: 'query' })
     .populate('thumbnail', 'name url')
     .populate('gallery', 'name url')
     .populate('categoryId', 'name')

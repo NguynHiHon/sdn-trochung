@@ -37,7 +37,32 @@ const scheduleSchema = new Schema(
         tourGuideId: {
             type: Schema.Types.ObjectId,
             ref: 'User', // Refers to the staff/guide assigned
-        }
+        },
+        guideAssignmentHistory: [{
+            action: {
+                type: String,
+                enum: ['assigned', 'unassigned'],
+                required: true,
+            },
+            guideId: {
+                type: Schema.Types.ObjectId,
+                ref: 'User',
+                default: null,
+            },
+            changedBy: {
+                type: Schema.Types.ObjectId,
+                ref: 'User',
+                default: null,
+            },
+            changedAt: {
+                type: Date,
+                default: Date.now,
+            },
+            note: {
+                type: String,
+                default: '',
+            },
+        }],
     },
     {
         timestamps: true,

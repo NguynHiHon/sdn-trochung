@@ -3,6 +3,7 @@ const Booking = require('../models/booking.model');
 const Schedule = require('../models/schedule.model');
 const Tour = require('../models/tour.model');
 const Participant = require('../models/participant.model');
+const BookingAssignment = require('../models/bookingAssignment.model');
 
 let io;
 const setIO = (socketIoInstance) => { io = socketIoInstance; };
@@ -19,7 +20,7 @@ const getAvailability = async (tourId, month, year) => {
     } else {
         filter.startDate = { $gte: new Date() };
     }
-    
+
     return await Schedule.find(filter).sort({ startDate: 1 });
 };
 
@@ -35,7 +36,7 @@ const holdBooking = async (bookingData) => {
 
     const remainingSlots = schedule.capacity - schedule.bookedSlots;
     if (remainingSlots < totalGuests) throw new Error('Not enough slots available');
-    
+
     if (participants && participants.length !== totalGuests) {
         throw new Error('Số lượng hành khách (participants) phải bằng tổng số lượng khách (totalGuests)');
     }
@@ -94,7 +95,7 @@ const holdBooking = async (bookingData) => {
     }
 
     if (io) io.to(`tour_${tourId}`).emit('availabilityUpdated', { tourId, scheduleId });
-    
+
     // 🔔 Thông báo real-time cho tất cả admin
     try {
         const notificationService = require('./notification.service');
@@ -115,7 +116,7 @@ const holdBooking = async (bookingData) => {
 const confirmBooking = async (bookingId, userId) => {
     const query = { _id: bookingId, status: 'HOLD' };
     if (userId) query.userId = userId;
-    
+
     const booking = await Booking.findOne(query);
     if (!booking) throw new Error('Booking not found or not in HOLD status');
     if (new Date() > booking.holdExpiresAt) throw new Error('Booking hold has expired');
@@ -145,6 +146,16 @@ const cancelBooking = async (bookingId, userId, reason = '') => {
     booking.cancelReason = reason || '';
     await booking.save();
 
+    // AUTO-SYNC: Cancel all related assignments
+    try {
+        await BookingAssignment.updateMany(
+            { bookingId: booking._id, status: { $ne: 'cancelled' } },
+            { status: 'cancelled', updatedAt: new Date() }
+        );
+    } catch (err) {
+        console.error('[cancelBooking] Failed to auto-cancel assignments:', err.message);
+    }
+
     if (io && booking.tourId) io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, scheduleId: booking.scheduleId });
 
     return booking;
@@ -157,6 +168,16 @@ const completeBooking = async (bookingId) => {
     booking.status = 'COMPLETED';
     await booking.save();
 
+    // AUTO-SYNC: Mark all related assignments as completed
+    try {
+        await BookingAssignment.updateMany(
+            { bookingId: booking._id, status: { $ne: 'completed' } },
+            { status: 'completed', updatedAt: new Date() }
+        );
+    } catch (err) {
+        console.error('[completeBooking] Failed to auto-complete assignments:', err.message);
+    }
+
     return booking;
 };
 
@@ -168,7 +189,7 @@ const releaseExpiredHolds = async () => {
         for (const booking of expiredBookings) {
             try {
                 const schedule = await Schedule.findById(booking.scheduleId);
-                
+
                 if (schedule) {
                     schedule.bookedSlots -= booking.totalGuests;
                     if (schedule.bookedSlots < 0) schedule.bookedSlots = 0;
@@ -178,7 +199,7 @@ const releaseExpiredHolds = async () => {
 
                 booking.status = 'CANCELLED';
                 await booking.save();
-                
+
                 if (io) io.to(`tour_${booking.tourId}`).emit('availabilityUpdated', { tourId: booking.tourId, scheduleId: booking.scheduleId });
             } catch (err) {
                 console.error(`Failed to release hold for booking ${booking._id}:`, err);
@@ -189,7 +210,7 @@ const releaseExpiredHolds = async () => {
     }
 };
 
-const getAllBookings = async ({ tourId, scheduleId, status, page = 1, limit = 20 }) => {
+const getAllBookings = async ({ tourId, scheduleId, status, assignmentStatus, participantReviewStatus, page = 1, limit = 20 }) => {
     const filter = {};
     if (tourId && tourId !== 'all') filter.tourId = tourId;
     if (scheduleId && scheduleId !== 'all') filter.scheduleId = scheduleId;
@@ -199,17 +220,93 @@ const getAllBookings = async ({ tourId, scheduleId, status, page = 1, limit = 20
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const data = await Booking.find(filter)
+    let data = await Booking.find(filter)
         .populate('tourId', 'name code')
         .populate('scheduleId', 'startDate endDate')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum);
 
-    const total = await Booking.countDocuments(filter);
+    const bookingIds = data.map((b) => b._id);
+    
+    // Fetch assignments and participant reviews
+    const latestAssignments = bookingIds.length > 0
+        ? await BookingAssignment.find({ bookingId: { $in: bookingIds } })
+            .populate('staffId', 'fullName username email phone')
+            .populate('assignedBy', 'fullName username')
+            .sort({ createdAt: -1 })
+        : [];
+
+    const participantsByBooking = bookingIds.length > 0
+        ? await Participant.find({ bookingId: { $in: bookingIds } })
+        : [];
+
+    const assignmentMap = new Map();
+    latestAssignments.forEach((a) => {
+        const key = String(a.bookingId);
+        if (!assignmentMap.has(key)) {
+            assignmentMap.set(key, a);
+        }
+    });
+
+    const participantMapByBooking = new Map();
+    participantsByBooking.forEach((p) => {
+        const key = String(p.bookingId);
+        if (!participantMapByBooking.has(key)) {
+            participantMapByBooking.set(key, []);
+        }
+        participantMapByBooking.get(key).push(p);
+    });
+
+    // Apply filters on normalized data
+    let normalizedData = data.map((bookingDoc) => {
+        const booking = bookingDoc.toObject();
+        const latestAssignment = assignmentMap.get(String(booking._id));
+        booking.consultantAssignment = latestAssignment
+            ? {
+                _id: latestAssignment._id,
+                status: latestAssignment.status,
+                note: latestAssignment.note,
+                assignedAt: latestAssignment.createdAt,
+                staff: latestAssignment.staffId || null,
+                assignedBy: latestAssignment.assignedBy || null,
+            }
+            : null;
+        
+        // Add participant review statuses for filtering
+        booking._participantReviewStatuses = (participantMapByBooking.get(String(booking._id)) || [])
+            .map(p => p.adminReview?.reviewStatus)
+            .filter(Boolean);
+        
+        return booking;
+    });
+
+    // Filter by assignment status
+    if (assignmentStatus && assignmentStatus !== 'all') {
+        if (assignmentStatus === 'unassigned') {
+            normalizedData = normalizedData.filter(b => !b.consultantAssignment);
+        } else {
+            normalizedData = normalizedData.filter(b => b.consultantAssignment?.status === assignmentStatus);
+        }
+    }
+
+    // Filter by participant review status
+    if (participantReviewStatus && participantReviewStatus !== 'all') {
+        normalizedData = normalizedData.filter(b => 
+            b._participantReviewStatuses.includes(participantReviewStatus)
+        );
+    }
+
+    // Remove temporary field
+    normalizedData = normalizedData.map(b => {
+        delete b._participantReviewStatuses;
+        return b;
+    });
+
+    const total = normalizedData.length > 0 ? await Booking.countDocuments(filter) : 0;
 
     return {
-        data,
+        data: normalizedData,
         total,
         page: pageNum,
         totalPages: Math.ceil(total / limitNum)

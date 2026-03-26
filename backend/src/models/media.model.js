@@ -6,6 +6,11 @@ const mediaSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  title: {
+    type: String,
+    default: '',
+    trim: true
+  },
   type: {
     type: String,
     enum: ['tour', 'gallery', 'banner', 'other'],

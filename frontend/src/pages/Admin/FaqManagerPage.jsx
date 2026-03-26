@@ -98,9 +98,11 @@ export default function FaqManagerPage({ embedded }) {
 
   const [catDialog, setCatDialog] = useState(false);
   const [catForm, setCatForm] = useState(emptyCat);
+  const [catErrors, setCatErrors] = useState({});
   const [catEditId, setCatEditId] = useState(null);
   const [itemDialog, setItemDialog] = useState(false);
   const [itemForm, setItemForm] = useState(emptyItem);
+  const [itemErrors, setItemErrors] = useState({});
   const [itemEditId, setItemEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [catMediaPickerOpen, setCatMediaPickerOpen] = useState(false);
@@ -144,12 +146,13 @@ export default function FaqManagerPage({ embedded }) {
   }, [itemFilter]);
 
   const saveCat = async () => {
-    if (
-      !catForm.slug.trim() ||
-      !catForm.title.vi.trim() ||
-      !catForm.title.en.trim()
-    ) {
-      toast.warning("Slug và tiêu đề (VI/EN) bắt buộc");
+    const nextErrors = {};
+    if (!catForm.slug.trim()) nextErrors.slug = "Slug là bắt buộc";
+    if (!catForm.title.vi.trim()) nextErrors["title.vi"] = "Tiêu đề (VI) là bắt buộc";
+    if (!catForm.title.en.trim()) nextErrors["title.en"] = "Tiêu đề (EN) là bắt buộc";
+    setCatErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.warning("Vui lòng kiểm tra các trường đang báo đỏ trước khi lưu");
       return;
     }
     setSaving(true);
@@ -184,12 +187,13 @@ export default function FaqManagerPage({ embedded }) {
   };
 
   const saveItem = async () => {
-    if (
-      !itemForm.categoryId ||
-      isRichTextEmpty(itemForm.answer.vi) ||
-      isRichTextEmpty(itemForm.answer.en)
-    ) {
-      toast.warning("Chọn trang FAQ và điền đủ nội dung trả lời (VI/EN)");
+    const nextErrors = {};
+    if (!itemForm.categoryId) nextErrors.categoryId = "Vui lòng chọn trang FAQ";
+    if (isRichTextEmpty(itemForm.answer.vi)) nextErrors["answer.vi"] = "Trả lời (VI) là bắt buộc";
+    if (isRichTextEmpty(itemForm.answer.en)) nextErrors["answer.en"] = "Answer (EN) is required";
+    setItemErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.warning("Vui lòng kiểm tra các trường đang báo đỏ trước khi lưu");
       return;
     }
     setSaving(true);
@@ -250,6 +254,7 @@ export default function FaqManagerPage({ embedded }) {
             onClick={() => {
               setCatEditId(null);
               setCatForm({ ...emptyCat });
+              setCatErrors({});
               setCatHeroPreviewUrl("");
               setCatDialog(true);
             }}
@@ -327,6 +332,7 @@ export default function FaqManagerPage({ embedded }) {
                               sortOrder: c.sortOrder ?? 0,
                               anchorAliasesText: (c.anchorAliases || []).join(", "),
                             });
+                            setCatErrors({});
                             setCatHeroPreviewUrl("");
                             setCatDialog(true);
                           }}
@@ -395,6 +401,7 @@ export default function FaqManagerPage({ embedded }) {
                       ? itemFilter
                       : categories[0]?._id || "",
                 });
+                setItemErrors({});
                 setItemDialog(true);
               }}
             >
@@ -458,6 +465,7 @@ export default function FaqManagerPage({ embedded }) {
                               youtubeUrl: "",
                               sortOrder: it.sortOrder ?? 0,
                             });
+                            setItemErrors({});
                             setItemDialog(true);
                           }}
                         >
@@ -506,13 +514,14 @@ export default function FaqManagerPage({ embedded }) {
             margin="normal"
             label="Slug (URL #...)"
             value={catForm.slug}
+            error={!!catErrors.slug}
             onChange={(e) =>
               setCatForm({
                 ...catForm,
                 slug: e.target.value.toLowerCase().replaceAll(/\s+/g, "-"),
               })
             }
-            helperText="Đổi slug sẽ đổi anchor #... trên trang /faqs"
+            helperText={catErrors.slug || "Đổi slug sẽ đổi anchor #... trên trang /faqs"}
           />
           <TextField
             fullWidth
@@ -531,6 +540,8 @@ export default function FaqManagerPage({ embedded }) {
                 fullWidth
                 label="Tiêu đề trang (VI) — hiển thị 1. …"
                 value={catForm.title.vi}
+                error={!!catErrors["title.vi"]}
+                helperText={catErrors["title.vi"] || ""}
                 onChange={(e) =>
                   setCatForm({
                     ...catForm,
@@ -544,6 +555,8 @@ export default function FaqManagerPage({ embedded }) {
                 fullWidth
                 label="Page title (EN) — shown as 1. …"
                 value={catForm.title.en}
+                error={!!catErrors["title.en"]}
+                helperText={catErrors["title.en"] || ""}
                 onChange={(e) =>
                   setCatForm({
                     ...catForm,
@@ -686,6 +699,8 @@ export default function FaqManagerPage({ embedded }) {
             select
             label="Thuộc trang FAQ"
             value={itemForm.categoryId}
+            error={!!itemErrors.categoryId}
+            helperText={itemErrors.categoryId || ""}
             onChange={(e) =>
               setItemForm({ ...itemForm, categoryId: e.target.value })
             }
@@ -733,6 +748,11 @@ export default function FaqManagerPage({ embedded }) {
             placeholder="Nội dung… (chữ thuần đầu tiên dùng làm dòng tiêu đề trên trang FAQ)"
             minHeight={200}
           />
+          {!!itemErrors["answer.vi"] && (
+            <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+              {itemErrors["answer.vi"]}
+            </Typography>
+          )}
           <RichTextEditor
             label="Answer (EN)"
             value={itemForm.answer.en}
@@ -745,6 +765,11 @@ export default function FaqManagerPage({ embedded }) {
             placeholder="Content… (first plain text becomes the FAQ row title)"
             minHeight={200}
           />
+          {!!itemErrors["answer.en"] && (
+            <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+              {itemErrors["answer.en"]}
+            </Typography>
+          )}
           <TextField
             fullWidth
             margin="normal"

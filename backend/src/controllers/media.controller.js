@@ -21,11 +21,17 @@ const getMediaById = async (req, res) => {
 
 const createMedia = async (req, res) => {
   try {
-    const { name, type, url, public_id } = req.body;
-    if (!name || !url) {
+    const { name, title, type, url, public_id } = req.body;
+    if (!name || !String(name).trim() || !url) {
       return res.status(400).json({ success: false, message: 'Thiếu name hoặc url' });
     }
-    const newMedia = await MediaService.createMedia({ name, type, url, public_id });
+    const newMedia = await MediaService.createMedia({
+      name: String(name).trim(),
+      title: String(title || '').trim(),
+      type,
+      url,
+      public_id
+    });
     res.status(201).json({ success: true, data: newMedia });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

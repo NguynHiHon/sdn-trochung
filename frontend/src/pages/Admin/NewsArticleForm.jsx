@@ -39,6 +39,7 @@ export default function NewsArticleForm() {
   const [categories, setCategories] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState("thumbnail");
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     categoryId: "",
     slug: "",
@@ -87,17 +88,35 @@ export default function NewsArticleForm() {
   }, [id, isEdit]);
 
   const lang = langTab === 0 ? "vi" : "en";
-  const setBi = (field, v) =>
+  const setBi = (field, v) => {
     setForm((prev) => ({ ...prev, [field]: { ...prev[field], [lang]: v } }));
+    setErrors((prev) => {
+      const key = `${field}.${lang}`;
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const validateForm = () => {
+    const nextErrors = {};
+    if (!form.categoryId) nextErrors.categoryId = "Danh mục là bắt buộc";
+    if (!form.slug.trim()) nextErrors.slug = "Slug là bắt buộc";
+    if (!form.title.vi.trim()) nextErrors["title.vi"] = "Tiêu đề (VI) là bắt buộc";
+    if (!form.title.en.trim()) nextErrors["title.en"] = "Tiêu đề (EN) là bắt buộc";
+    if (!form.status) nextErrors.status = "Trạng thái là bắt buộc";
+    if (form.publishedAt && Number.isNaN(new Date(form.publishedAt).getTime())) {
+      nextErrors.publishedAt = "Ngày xuất bản không hợp lệ";
+    }
+    return nextErrors;
+  };
 
   const submit = async () => {
-    if (
-      !form.categoryId ||
-      !form.slug.trim() ||
-      !form.title.vi.trim() ||
-      !form.title.en.trim()
-    ) {
-      toast.warning("Danh mục, slug và tiêu đề (VI/EN) là bắt buộc");
+    const nextErrors = validateForm();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.warning("Vui lòng kiểm tra các trường đang báo đỏ trước khi lưu");
       return;
     }
     setSaving(true);
@@ -165,7 +184,17 @@ export default function NewsArticleForm() {
               label="Danh mục"
               required
               value={form.categoryId}
-              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+              error={!!errors.categoryId}
+              helperText={errors.categoryId || ""}
+              onChange={(e) => {
+                setForm({ ...form, categoryId: e.target.value });
+                setErrors((prev) => {
+                  if (!prev.categoryId) return prev;
+                  const next = { ...prev };
+                  delete next.categoryId;
+                  return next;
+                });
+              }}
             >
               {categories.map((c) => (
                 <MenuItem key={c._id} value={c._id}>
@@ -194,16 +223,24 @@ export default function NewsArticleForm() {
               label="Slug (URL)"
               required
               value={form.slug}
-              onChange={(e) =>
+              error={!!errors.slug}
+              onChange={(e) => {
                 setForm({
                   ...form,
                   slug: e.target.value
                     .toLowerCase()
                     .trim()
                     .replace(/\s+/g, "-"),
-                })
+                });
+                setErrors((prev) => {
+                  if (!prev.slug) return prev;
+                  const next = { ...prev };
+                  delete next.slug;
+                  return next;
+                });
               }
-              helperText="Duy nhất, ví dụ: bua-toi-nha-dan-tan-hoa"
+              }
+              helperText={errors.slug || "Duy nhất, ví dụ: bua-toi-nha-dan-tan-hoa"}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -212,7 +249,17 @@ export default function NewsArticleForm() {
               select
               label="Trạng thái"
               value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              error={!!errors.status}
+              helperText={errors.status || ""}
+              onChange={(e) => {
+                setForm({ ...form, status: e.target.value });
+                setErrors((prev) => {
+                  if (!prev.status) return prev;
+                  const next = { ...prev };
+                  delete next.status;
+                  return next;
+                });
+              }}
             >
               <MenuItem value="draft">Nháp</MenuItem>
               <MenuItem value="published">Xuất bản</MenuItem>
@@ -226,10 +273,18 @@ export default function NewsArticleForm() {
               label="Ngày xuất bản"
               InputLabelProps={{ shrink: true }}
               value={form.publishedAt}
-              onChange={(e) =>
-                setForm({ ...form, publishedAt: e.target.value })
+              error={!!errors.publishedAt}
+              onChange={(e) => {
+                setForm({ ...form, publishedAt: e.target.value });
+                setErrors((prev) => {
+                  if (!prev.publishedAt) return prev;
+                  const next = { ...prev };
+                  delete next.publishedAt;
+                  return next;
+                });
               }
-              helperText="Tuỳ chọn — để trống khi lưu nháp"
+              }
+              helperText={errors.publishedAt || "Tuỳ chọn — để trống khi lưu nháp"}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -272,6 +327,8 @@ export default function NewsArticleForm() {
           fullWidth
           label="Tiêu đề"
           value={form.title.vi}
+          error={!!errors["title.vi"]}
+          helperText={errors["title.vi"] || ""}
           onChange={(e) => setBi("title", e.target.value)}
           sx={{ mb: 2 }}
         />
@@ -296,6 +353,8 @@ export default function NewsArticleForm() {
           fullWidth
           label="Title"
           value={form.title.en}
+          error={!!errors["title.en"]}
+          helperText={errors["title.en"] || ""}
           onChange={(e) => setBi("title", e.target.value)}
           sx={{ mb: 2 }}
         />

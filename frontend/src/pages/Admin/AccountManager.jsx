@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Table, TableHead, TableRow, TableCell, TableBody,
   TableContainer, Paper, Chip, TextField, MenuItem, Pagination,
   CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  FormControl, InputLabel, Select, IconButton, Tooltip, Alert
+  FormControl, InputLabel, Select, IconButton, Tooltip, Alert, FormHelperText
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -36,11 +36,13 @@ export default function AccountManager() {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   // Reset password dialog
   const [resetDialog, setResetDialog] = useState(null);
   const [newPassword, setNewPassword] = useState('');
+  const [resetPasswordError, setResetPasswordError] = useState('');
 
   // Delete dialog
   const [deleteDialog, setDeleteDialog] = useState(null);
@@ -66,6 +68,7 @@ export default function AccountManager() {
   const handleOpenCreate = () => {
     setEditingUser(null);
     setForm(emptyForm);
+    setFormErrors({});
     setOpenDialog(true);
   };
 
@@ -79,10 +82,41 @@ export default function AccountManager() {
       email: user.email || '',
       phone: user.phone || '',
     });
+    setFormErrors({});
     setOpenDialog(true);
   };
 
+  const validateUserForm = () => {
+    const nextErrors = {};
+    if (!editingUser && !form.username?.trim()) {
+      nextErrors.username = 'Username là bắt buộc';
+    }
+    if (!editingUser && !form.password?.trim()) {
+      nextErrors.password = 'Mật khẩu là bắt buộc';
+    }
+    if (!editingUser && form.password && form.password.length < 4) {
+      nextErrors.password = 'Mật khẩu phải có ít nhất 4 ký tự';
+    }
+    if (!form.role) {
+      nextErrors.role = 'Role là bắt buộc';
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = 'Email không đúng định dạng';
+    }
+    if (form.phone && !/^[0-9+\-\s]{8,15}$/.test(form.phone)) {
+      nextErrors.phone = 'SĐT không đúng định dạng';
+    }
+    return nextErrors;
+  };
+
   const handleSave = async () => {
+    const nextErrors = validateUserForm();
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.warning('Vui lòng kiểm tra các trường đang báo đỏ trước khi lưu');
+      return;
+    }
+
     setSaving(true);
     try {
       if (editingUser) {
@@ -111,7 +145,12 @@ export default function AccountManager() {
   };
 
   const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 4) return toast.error('Mật khẩu phải ít nhất 4 ký tự');
+    if (!newPassword || newPassword.length < 4) {
+      setResetPasswordError('Mật khẩu phải ít nhất 4 ký tự');
+      toast.warning('Vui lòng kiểm tra mật khẩu mới');
+      return;
+    }
+    setResetPasswordError('');
     try {
       const res = await resetPassword(resetDialog._id, newPassword);
       if (res.success) { toast.success(res.message); setResetDialog(null); setNewPassword(''); }
@@ -222,27 +261,78 @@ export default function AccountManager() {
         <DialogContent>
           <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Username" value={form.username} disabled={!!editingUser}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))} fullWidth size="small" />
+              error={!!formErrors.username}
+              helperText={formErrors.username || ''}
+              onChange={e => {
+                const value = e.target.value;
+                setForm(f => ({ ...f, username: value }));
+                setFormErrors((prev) => {
+                  if (!prev.username) return prev;
+                  const next = { ...prev };
+                  delete next.username;
+                  return next;
+                });
+              }} fullWidth size="small" />
             {!editingUser && (
               <TextField label="Mật khẩu" type="password" value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))} fullWidth size="small" />
+                error={!!formErrors.password}
+                helperText={formErrors.password || ''}
+                onChange={e => {
+                  const value = e.target.value;
+                  setForm(f => ({ ...f, password: value }));
+                  setFormErrors((prev) => {
+                    if (!prev.password) return prev;
+                    const next = { ...prev };
+                    delete next.password;
+                    return next;
+                  });
+                }} fullWidth size="small" />
             )}
-            <FormControl size="small" fullWidth>
+            <FormControl size="small" fullWidth error={!!formErrors.role}>
               <InputLabel>Role</InputLabel>
-              <Select value={form.role} label="Role" onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+              <Select value={form.role} label="Role" onChange={e => {
+                setForm(f => ({ ...f, role: e.target.value }));
+                setFormErrors((prev) => {
+                  if (!prev.role) return prev;
+                  const next = { ...prev };
+                  delete next.role;
+                  return next;
+                });
+              }}>
                 {ROLES.map(r => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
               </Select>
+              <FormHelperText>{formErrors.role || ''}</FormHelperText>
             </FormControl>
             <TextField label="Họ tên" value={form.fullName}
               onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} fullWidth size="small" />
             <Grid container spacing={2}>
               <Grid item xs={6}>
                 <TextField label="Email" value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))} fullWidth size="small" />
+                  error={!!formErrors.email}
+                  helperText={formErrors.email || ''}
+                  onChange={e => {
+                    setForm(f => ({ ...f, email: e.target.value }));
+                    setFormErrors((prev) => {
+                      if (!prev.email) return prev;
+                      const next = { ...prev };
+                      delete next.email;
+                      return next;
+                    });
+                  }} fullWidth size="small" />
               </Grid>
               <Grid item xs={6}>
                 <TextField label="SĐT" value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} fullWidth size="small" />
+                  error={!!formErrors.phone}
+                  helperText={formErrors.phone || ''}
+                  onChange={e => {
+                    setForm(f => ({ ...f, phone: e.target.value }));
+                    setFormErrors((prev) => {
+                      if (!prev.phone) return prev;
+                      const next = { ...prev };
+                      delete next.phone;
+                      return next;
+                    });
+                  }} fullWidth size="small" />
               </Grid>
             </Grid>
           </Box>
@@ -262,7 +352,12 @@ export default function AccountManager() {
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>Đặt lại mật khẩu cho: <strong>{resetDialog?.username}</strong></Alert>
           <TextField label="Mật khẩu mới" type="password" value={newPassword}
-            onChange={e => setNewPassword(e.target.value)} fullWidth size="small" />
+            error={!!resetPasswordError}
+            helperText={resetPasswordError || ''}
+            onChange={e => {
+              setNewPassword(e.target.value);
+              if (resetPasswordError) setResetPasswordError('');
+            }} fullWidth size="small" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setResetDialog(null)}>Huỷ</Button>

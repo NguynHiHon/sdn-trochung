@@ -24,7 +24,14 @@ const createSchedule = async (req, res) => {
     const newSchedule = await ScheduleService.createSchedule(req.body);
     res.status(201).json({ success: true, data: newSchedule });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    if (error.code === 'SCHEDULE_DUPLICATE') {
+      console.warn('[schedule.create] duplicate detected', {
+        tour: error.details?.tour,
+        duplicates: error.details?.duplicates,
+      });
+    }
+    res.status(status).json({ success: false, message: error.message, details: error.details || null });
   }
 };
 
@@ -37,13 +44,21 @@ const bulkCreateSchedules = async (req, res) => {
     const created = await ScheduleService.bulkCreateSchedules(tourId, dates);
     res.status(201).json({ success: true, data: created, message: `Đã tạo ${created.length} lịch khởi hành.` });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    if (error.code === 'SCHEDULE_DUPLICATE') {
+      console.warn('[schedule.bulkCreate] duplicate detected', {
+        requestedCount: Array.isArray(req.body?.dates) ? req.body.dates.length : 0,
+        tour: error.details?.tour,
+        duplicates: error.details?.duplicates,
+      });
+    }
+    res.status(status).json({ success: false, message: error.message, details: error.details || null });
   }
 };
 
 const updateSchedule = async (req, res) => {
   try {
-    const updated = await ScheduleService.updateScheduleById(req.params.id, req.body);
+    const updated = await ScheduleService.updateScheduleById(req.params.id, req.body, req.user?._id || null);
     if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch khởi hành' });
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
