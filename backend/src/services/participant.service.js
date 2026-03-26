@@ -1,4 +1,5 @@
 const Participant = require('../models/participant.model');
+const certificateService = require('./certificate.service');
 
 const VALID_REVIEW_STATUSES = ['pending_review', 'approved', 'rejected', 'completed', 'service_suspended'];
 
@@ -16,7 +17,15 @@ const createParticipant = async (data) => {
 };
 
 const updateParticipantById = async (id, updateData) => {
-  return await Participant.findByIdAndUpdate(id, updateData, { new: true });
+  const updated = await Participant.findByIdAndUpdate(id, updateData, { new: true });
+  if (updated && updateData.status === 'completed') {
+    try {
+      await certificateService.createCertificate(updated);
+    } catch (err) {
+      console.error('Certificate creation failed:', err.message);
+    }
+  }
+  return updated;
 };
 
 const updateParticipantAdminStatus = async (id, { reviewStatus, reviewNote, certificateIssued }, adminUserId) => {

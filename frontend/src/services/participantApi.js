@@ -8,4 +8,9 @@ export const getParticipantsByBookingId = async (bookingId) => {
 export const updateParticipantAdminStatus = async (participantId, payload) => {
   const response = await axiosJWT.patch(`/api/participants/${participantId}/admin-status`, payload);
   return response.data;
+}
+
+export const updateParticipant = async (id, data) => {
+  const response = await axiosJWT.put(`/api/participants/${id}`, data);
+  return response.data;
 };

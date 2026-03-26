@@ -20,10 +20,10 @@ const STATUS_META = {
 };
 
 const BOOKING_STATUS_META = {
-    HOLD:      { label: 'Giữ chỗ',    color: 'warning' },
+    HOLD:      { label: 'Giữ chỗ',     color: 'warning' },
     CONFIRMED: { label: 'Đã xác nhận', color: 'success' },
-    CANCELLED: { label: 'Đã hủy',     color: 'default' },
-    COMPLETED: { label: 'Hoàn thành', color: 'info'    },
+    CANCELLED: { label: 'Đã hủy',      color: 'default' },
+    COMPLETED: { label: 'Hoàn thành',  color: 'info'    },
 };
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -37,7 +37,7 @@ export default function StaffAssignments() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
-    const [newCount, setNewCount] = useState(0); // badge đếm assignment mới chưa xẻ
+    const [newCount, setNewCount] = useState(0);
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
@@ -49,7 +49,6 @@ export default function StaffAssignments() {
         setDetailOpen(true);
     };
 
-    // ref để fetchAssignments có thể gọi từ socket listener mà không stale closure
     const fetchRef = useRef(null);
 
     const fetchAssignments = useCallback(async (p, st) => {
@@ -70,27 +69,22 @@ export default function StaffAssignments() {
         }
     }, [currentUser?._id]);
 
-    // Giữ ref luôn cập nhật để socket listener không stale
     fetchRef.current = () => fetchAssignments(1, status);
 
     useEffect(() => {
         fetchAssignments(1, status);
     }, [fetchAssignments, status]);
 
-    // Socket listener — tự động refresh khi admin phân công mới
     useEffect(() => {
         const socket = getSocket();
         if (!socket) return;
-
         const handler = (notification) => {
             if (notification?.type === 'assignment') {
                 setNewCount(prev => prev + 1);
                 toast.info('🔔 Bạn có một phiếu tư vấn mới!', { duration: 4000 });
-                // Refresh trang 1 với filter hiện tại
                 fetchRef.current?.();
             }
         };
-
         socket.on('newNotification', handler);
         return () => socket.off('newNotification', handler);
     }, []);
@@ -183,7 +177,6 @@ export default function StaffAssignments() {
                                     const tour = booking?.tourId;
                                     const schedule = booking?.scheduleId;
                                     const bStatus = BOOKING_STATUS_META[booking?.status] || { label: booking?.status, color: 'default' };
-                                    const aStatus = STATUS_META[a.status] || { label: a.status, color: 'default' };
                                     return (
                                         <TableRow
                                             key={a._id}
@@ -191,24 +184,19 @@ export default function StaffAssignments() {
                                             onClick={() => handleRowClick(a)}
                                             sx={{ cursor: 'pointer' }}
                                         >
-                                            {/* Booking code */}
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight={700} color="primary.main">
                                                     {booking?.bookingCode || '—'}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Tour */}
                                             <TableCell>
-                                                <Typography variant="body2" fontWeight={600}>
-                                                    {tour?.code || '—'}
-                                                </Typography>
+                                                <Typography variant="body2" fontWeight={600}>{tour?.code || '—'}</Typography>
                                                 <Typography variant="caption" color="text.secondary" display="block">
                                                     {tour?.name?.vi || ''}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Schedule date */}
                                             <TableCell>
                                                 <Typography variant="body2">{fmt(schedule?.startDate)}</Typography>
                                                 {schedule?.endDate && (
@@ -218,7 +206,6 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Contact info */}
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight={600}>
                                                     {booking?.contactInfo?.fullName || '—'}
@@ -236,31 +223,26 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Guests */}
                                             <TableCell align="center">
                                                 <Typography fontWeight={600}>{booking?.totalGuests || 0}</Typography>
                                             </TableCell>
 
-                                            {/* Price */}
                                             <TableCell align="right">
                                                 <Typography variant="body2" fontWeight={600} color="success.dark">
                                                     {fmtMoney(booking?.totalPrice)}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Booking status */}
                                             <TableCell>
                                                 <Chip label={bStatus.label} size="small" color={bStatus.color} />
                                             </TableCell>
 
-                                            {/* Assigned by */}
                                             <TableCell>
                                                 <Typography variant="body2">
                                                     {a.assignedBy?.fullName || a.assignedBy?.username || '—'}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Note */}
                                             <TableCell sx={{ maxWidth: 160 }}>
                                                 {a.note ? (
                                                     <Tooltip title={a.note} arrow>
@@ -273,16 +255,11 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Assignment status (editable, locked if booking is CANCELLED) */}
                                             <TableCell onClick={(e) => e.stopPropagation()}>
                                                 {booking?.status === 'CANCELLED' ? (
                                                     <Tooltip title="Booking đã hủy, không thể thay đổi trạng thái nhiệm vụ" arrow>
                                                         <span>
-                                                            <Chip
-                                                                label="Đã hủy"
-                                                                size="small"
-                                                                color="default"
-                                                            />
+                                                            <Chip label="Đã hủy" size="small" color="default" />
                                                         </span>
                                                     </Tooltip>
                                                 ) : (
