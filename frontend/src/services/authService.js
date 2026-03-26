@@ -9,6 +9,46 @@ import {
     logout
 } from '../redux/slices/authSlice';
 import { setAccessToken, clearToken } from '../redux/slices/tokenSlice';
+import { clearUserProfile } from '../redux/slices/userSlice';
+import { persistor } from '../redux/store';
+
+const clearBrowserAuthData = () => {
+    try {
+        localStorage.clear();
+        sessionStorage.clear();
+    } catch (_) {
+        // ignore storage cleanup errors
+    }
+
+    // Try clearing common cookies used for auth/session in browser scope.
+    const cookieNames = ['refreshToken', 'accessToken', 'token', 'jwt', 'connect.sid'];
+    cookieNames.forEach((name) => {
+        document.cookie = `${name}=; Max-Age=0; path=/;`;
+        document.cookie = `${name}=; Max-Age=0; path=/; domain=${window.location.hostname};`;
+    });
+};
+
+export const forceClientLogout = async (dispatch, navigate, redirectTo = '/signin', fromPath = '') => {
+    try {
+        await axiosPublic.post('/api/auth/signOut');
+    } catch (error) {
+        // ignore signOut API failures and continue hard cleanup
+        console.error('Force signOut API failed:', error?.message || error);
+    }
+
+    dispatch(logout());
+    dispatch(clearToken());
+    dispatch(clearUserProfile());
+
+    try {
+        await persistor.purge();
+    } catch (_) {
+        // ignore persist cleanup errors
+    }
+
+    clearBrowserAuthData();
+    navigate(redirectTo, { replace: true, state: fromPath ? { from: fromPath } : undefined });
+};
 
 // Sign In
 export const signInUser = async (user, dispatch, navigate) => {
@@ -56,18 +96,7 @@ export const signUpUser = async (user, dispatch, navigate) => {
 
 // Sign Out
 export const signOutUser = async (dispatch, navigate) => {
-    try {
-        await axiosPublic.post('/api/auth/signOut');
-        dispatch(logout());
-        dispatch(clearToken());
-        navigate('/');
-    } catch (error) {
-        // Ngay cả khi API call thất bại, vẫn logout ở frontend
-        console.error("SignOut API call failed:", error);
-        dispatch(logout());
-        dispatch(clearToken());
-        navigate('/');
-    }
+    await forceClientLogout(dispatch, navigate, '/');
 };
 
 // Refresh Token (nếu cần)
@@ -79,6 +108,7 @@ export const refreshAccessToken = async (dispatch) => {
     } catch (error) {
         dispatch(logout());
         dispatch(clearToken());
+        dispatch(clearUserProfile());
         throw error;
     }
 };

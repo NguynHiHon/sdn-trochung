@@ -1,5 +1,6 @@
 const BookingAssignment = require('../models/bookingAssignment.model');
 const Booking = require('../models/booking.model');
+const User = require('../models/Users');
 const notificationService = require('./notification.service');
 
 const assignBooking = async ({ bookingId, staffId, assignedBy, note }) => {
@@ -61,23 +62,58 @@ const getAssignments = async ({ staffId, status, page = 1, limit = 20 }) => {
 };
 
 const updateAssignmentStatus = async (assignmentId, status, userId) => {
+    if (!['in_progress', 'cancelled'].includes(status)) {
+        throw new Error('Nhân viên chỉ có thể Tiếp nhận hoặc Từ chối yêu cầu tư vấn');
+    }
+
     const assignment = await BookingAssignment.findById(assignmentId);
     if (!assignment) throw new Error('Assignment not found');
+
+    // Staff chỉ được thao tác assignment của chính mình
+    if (assignment.staffId.toString() !== userId.toString()) {
+        throw new Error('Bạn không có quyền thao tác assignment này');
+    }
+
+    // Chỉ xử lý ở trạng thái chờ
+    if (assignment.status !== 'pending') {
+        throw new Error('Assignment này đã được xử lý trước đó');
+    }
+
+    const staff = await User.findById(userId).select('fullName username');
+    const booking = await Booking.findById(assignment.bookingId).populate('tourId', 'name code');
+
+    if (status === 'cancelled') {
+        // Từ chối: gỡ staff khỏi booking bằng cách xóa assignment
+        await BookingAssignment.deleteOne({ _id: assignmentId });
+
+        await notificationService.notifyAllAdmins({
+            type: 'assignment',
+            title: 'Nhân viên từ chối tư vấn',
+            content: `${staff?.fullName || staff?.username || 'Nhân viên'} đã từ chối booking ${booking?.bookingCode || 'N/A'}. Vui lòng phân công người khác.`,
+            relatedId: booking?._id || assignmentId,
+            relatedModel: 'Booking',
+        });
+
+        return {
+            _id: assignmentId,
+            bookingId: booking,
+            staffId: staff,
+            assignedBy: assignment.assignedBy,
+            status: 'cancelled',
+            removed: true,
+        };
+    }
 
     assignment.status = status;
     await assignment.save();
 
-    // Notify admin when staff updates status
-    if (status === 'completed') {
-        const booking = await Booking.findById(assignment.bookingId).populate('tourId', 'name code');
-        await notificationService.notifyAllAdmins({
-            type: 'system',
-            title: 'Tư vấn hoàn thành',
-            content: `Nhân viên đã hoàn thành tư vấn booking ${booking?.bookingCode || 'N/A'}`,
-            relatedId: assignment._id,
-            relatedModel: 'BookingAssignment',
-        });
-    }
+    await notificationService.notifyAllAdmins({
+        type: 'assignment',
+        title: 'Nhân viên đã tiếp nhận tư vấn',
+        content: `${staff?.fullName || staff?.username || 'Nhân viên'} đã tiếp nhận booking ${booking?.bookingCode || 'N/A'}.`,
+        relatedId: assignment._id,
+        relatedModel: 'BookingAssignment',
+    });
 
     return await BookingAssignment.findById(assignmentId)
         .populate({

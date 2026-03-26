@@ -6,10 +6,11 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { toast } from 'sonner';
-import { getAllMedia, createMedia, deleteMedia } from '../../services/mediaApi';
+import { getAllMedia, createMedia, deleteMedia, updateMedia } from '../../services/mediaApi';
 import { uploadFileToCloudinarySigned } from '../../services/cloudinaryApi';
 
 export default function MediaManager() {
@@ -19,13 +20,15 @@ export default function MediaManager() {
   const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Modal state
   const [openModal, setOpenModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({ name: '', type: 'tour' });
+  const [editMedia, setEditMedia] = useState(null);
+  const [editing, setEditing] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -56,6 +59,15 @@ export default function MediaManager() {
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
+      if (!selectedFile.type?.startsWith('image/')) {
+        toast.warning('Chỉ chấp nhận file ảnh');
+        return;
+      }
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        toast.warning('Kích thước ảnh tối đa 10MB');
+        return;
+      }
+
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       if (!formData.name) {
@@ -80,15 +92,25 @@ export default function MediaManager() {
   };
 
   const handleUploadSubmit = async () => {
-    if (!file || !formData.name) {
+    const normalizedName = formData.name?.trim();
+
+    if (!file || !normalizedName) {
       toast.warning('Vui lòng chọn ảnh và nhập tên ảnh!');
+      return;
+    }
+    if (normalizedName.length < 2 || normalizedName.length > 120) {
+      toast.warning('Tên ảnh phải từ 2 đến 120 ký tự');
+      return;
+    }
+    if (!['tour', 'banner', 'gallery', 'other'].includes(formData.type)) {
+      toast.warning('Loại ảnh không hợp lệ');
       return;
     }
 
     try {
       setUploading(true);
       toast.info('Đang tải ảnh lên Cloudinary...');
-      
+
       // 1. Tải lên Cloudinary bằng chữ ký bảo mật
       const cloudinaryResponse = await uploadFileToCloudinarySigned(file, `oxalis_${formData.type}`);
       const uploadedUrl = cloudinaryResponse.secure_url;
@@ -97,7 +119,7 @@ export default function MediaManager() {
       toast.info('Đang lưu thông tin vào CSDL hệ thống...');
       // 2. Lưu vào CSDL backend
       const newMediaRes = await createMedia({
-        name: formData.name,
+        name: normalizedName,
         type: formData.type,
         url: uploadedUrl,
         public_id: public_id
@@ -135,12 +157,48 @@ export default function MediaManager() {
     toast.success('Đã sao chép URL ảnh!');
   };
 
+  const openEditModal = (media) => {
+    setEditMedia({
+      _id: media._id,
+      name: media.name || '',
+      type: media.type || 'other',
+      url: media.url || '',
+    });
+  };
+
+  const submitEditMedia = async () => {
+    if (!editMedia) return;
+    const normalizedName = editMedia.name?.trim();
+    if (!normalizedName || normalizedName.length < 2 || normalizedName.length > 120) {
+      toast.warning('Tên ảnh phải từ 2 đến 120 ký tự');
+      return;
+    }
+    if (!['tour', 'banner', 'gallery', 'other'].includes(editMedia.type)) {
+      toast.warning('Loại ảnh không hợp lệ');
+      return;
+    }
+
+    setEditing(true);
+    try {
+      const res = await updateMedia(editMedia._id, { name: normalizedName, type: editMedia.type });
+      if (res.success) {
+        toast.success('Cập nhật ảnh thành công');
+        setEditMedia(null);
+        fetchMedias(searchQuery, filterType, page);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể cập nhật ảnh');
+    } finally {
+      setEditing(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Thư Viện Ảnh (Media Library)</Typography>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           startIcon={<AddPhotoAlternateIcon />}
           onClick={handleOpenModal}
           sx={{ borderRadius: '8px', px: 3, py: 1 }}
@@ -173,8 +231,8 @@ export default function MediaManager() {
           <MenuItem value="gallery">Gallery</MenuItem>
           <MenuItem value="other">Khác</MenuItem>
         </TextField>
-        <Button 
-          variant="outlined" 
+        <Button
+          variant="outlined"
           onClick={handleSearch}
           sx={{ height: 40 }}
         >
@@ -203,18 +261,25 @@ export default function MediaManager() {
                       alt={media.name}
                       sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                     />
-                    <Chip 
-                      label={media.type} 
-                      size="small" 
+                    <Chip
+                      label={media.type}
+                      size="small"
                       color={media.type === 'tour' ? 'primary' : media.type === 'banner' ? 'secondary' : 'default'}
                       sx={{ position: 'absolute', top: 8, left: 8, fontWeight: 'bold' }}
                     />
-                    <IconButton 
+                    <IconButton
                       size="small"
                       sx={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.7)', '&:hover': { backgroundColor: 'white' } }}
                       onClick={() => handleDelete(media._id)}
                     >
                       <DeleteIcon color="error" fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      sx={{ position: 'absolute', top: 8, right: 40, backgroundColor: 'rgba(255,255,255,0.7)', '&:hover': { backgroundColor: 'white' } }}
+                      onClick={() => openEditModal(media)}
+                    >
+                      <EditIcon fontSize="small" />
                     </IconButton>
                   </Box>
                   <CardContent sx={{ flexGrow: 1, p: 2 }}>
@@ -234,17 +299,17 @@ export default function MediaManager() {
               </Grid>
             ))}
           </Grid>
-          
+
           {!loading && totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
+              <Pagination
+                count={totalPages}
+                page={page}
                 onChange={(e, value) => {
                   setPage(value);
                   fetchMedias(searchQuery, filterType, value);
-                }} 
-                color="primary" 
+                }}
+                color="primary"
               />
             </Box>
           )}
@@ -256,20 +321,20 @@ export default function MediaManager() {
         <DialogTitle sx={{ fontWeight: 'bold' }}>Tải Ảnh Mới Lên Thư Viện</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-            
+
             {/* Image Preview / Picker */}
-            <Box 
-              sx={{ 
+            <Box
+              sx={{
                 width: '100%', height: 200, border: '2px dashed #ccc', borderRadius: 2,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', overflow: 'hidden', position: 'relative', backgroundColor: '#f9fafb'
               }}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
                 accept="image/*"
                 onChange={handleFileSelect}
               />
@@ -308,13 +373,53 @@ export default function MediaManager() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleCloseModal} disabled={uploading}>Hủy</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleUploadSubmit} 
+          <Button
+            variant="contained"
+            onClick={handleUploadSubmit}
             disabled={uploading || !file || !formData.name}
             startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : null}
           >
             {uploading ? 'Đang xử lý...' : 'Lưu lại'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog open={Boolean(editMedia)} onClose={() => setEditMedia(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Chỉnh sửa thông tin ảnh</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Tên ảnh"
+              fullWidth
+              value={editMedia?.name || ''}
+              onChange={(e) => setEditMedia((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <TextField
+              label="Loại ảnh"
+              select
+              fullWidth
+              value={editMedia?.type || 'other'}
+              onChange={(e) => setEditMedia((prev) => ({ ...prev, type: e.target.value }))}
+            >
+              <MenuItem value="tour">Tour</MenuItem>
+              <MenuItem value="banner">Banner</MenuItem>
+              <MenuItem value="gallery">Gallery</MenuItem>
+              <MenuItem value="other">Khác</MenuItem>
+            </TextField>
+            <TextField
+              label="URL"
+              fullWidth
+              size="small"
+              value={editMedia?.url || ''}
+              InputProps={{ readOnly: true }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setEditMedia(null)} disabled={editing}>Hủy</Button>
+          <Button variant="contained" onClick={submitEditMedia} disabled={editing}>
+            {editing ? <CircularProgress size={20} color="inherit" /> : 'Lưu thay đổi'}
           </Button>
         </DialogActions>
       </Dialog>

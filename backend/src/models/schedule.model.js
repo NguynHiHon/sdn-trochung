@@ -34,6 +34,11 @@ const scheduleSchema = new Schema(
             default: 'Available',
             index: true,
         },
+        isHidden: {
+            type: Boolean,
+            default: false,
+            index: true,
+        },
         tourGuideId: {
             type: Schema.Types.ObjectId,
             ref: 'User', // Refers to the staff/guide assigned
@@ -52,6 +57,9 @@ scheduleSchema.pre('save', function () {
         this.status = 'Available';
     }
 });
+
+// A tour can only have one schedule at the exact same start time.
+scheduleSchema.index({ tourId: 1, startDate: 1 }, { unique: true });
 
 const Schedule = mongoose.model('Schedule', scheduleSchema);
 module.exports = Schedule;

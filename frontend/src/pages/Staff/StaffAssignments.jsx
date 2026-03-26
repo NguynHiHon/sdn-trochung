@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box, Typography, Table, TableHead, TableRow, TableCell, TableBody,
     TableContainer, Paper, Chip, CircularProgress, TextField, MenuItem,
-    Pagination, FormControl, Select, Tooltip, Badge,
+    Pagination, Tooltip, Badge, Button,
 } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -13,17 +13,17 @@ import { getSocket } from '../../config/socketClient';
 import StaffBookingDetailModal from '../../components/staff/StaffBookingDetailModal';
 
 const STATUS_META = {
-    pending:     { label: 'Chờ xử lý',    color: 'warning' },
-    in_progress: { label: 'Đang tư vấn',  color: 'info'    },
-    completed:   { label: 'Hoàn thành',   color: 'success' },
-    cancelled:   { label: 'Đã hủy',       color: 'default' },
+    pending: { label: 'Chờ xử lý', color: 'warning' },
+    in_progress: { label: 'Đang tư vấn', color: 'info' },
+    completed: { label: 'Hoàn thành', color: 'success' },
+    cancelled: { label: 'Đã hủy', color: 'default' },
 };
 
 const BOOKING_STATUS_META = {
-    HOLD:      { label: 'Giữ chỗ',    color: 'warning' },
+    HOLD: { label: 'Giữ chỗ', color: 'warning' },
     CONFIRMED: { label: 'Đã xác nhận', color: 'success' },
-    CANCELLED: { label: 'Đã hủy',     color: 'default' },
-    COMPLETED: { label: 'Hoàn thành', color: 'info'    },
+    CANCELLED: { label: 'Đã hủy', color: 'default' },
+    COMPLETED: { label: 'Hoàn thành', color: 'info' },
 };
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -99,6 +99,13 @@ export default function StaffAssignments() {
         try {
             const res = await updateAssignmentStatus(assignmentId, nextStatus);
             if (res.success) {
+                if (res.data?.removed) {
+                    setAssignments((prev) => prev.filter((a) => a._id !== assignmentId));
+                    setTotal((prev) => Math.max(0, prev - 1));
+                    toast.success('Đã từ chối yêu cầu tư vấn. Admin sẽ phân công nhân viên khác.');
+                    return;
+                }
+
                 setAssignments((prev) => prev.map(a => a._id === assignmentId ? res.data : a));
                 toast.success('Cập nhật trạng thái thành công');
             } else {
@@ -273,25 +280,34 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Assignment status (editable) */}
+                                            {/* Assignment actions */}
                                             <TableCell onClick={(e) => e.stopPropagation()}>
-                                                <FormControl size="small" sx={{ minWidth: 150 }}>
-                                                    <Select
-                                                        value={a.status}
-                                                        onChange={(e) => handleStatusChange(a._id, e.target.value)}
-                                                        renderValue={(val) => (
-                                                            <Chip
-                                                                label={STATUS_META[val]?.label || val}
-                                                                size="small"
-                                                                color={STATUS_META[val]?.color || 'default'}
-                                                            />
-                                                        )}
-                                                    >
-                                                        {Object.entries(STATUS_META).map(([val, { label }]) => (
-                                                            <MenuItem key={val} value={val}>{label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
+                                                {a.status === 'pending' ? (
+                                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                        <Button
+                                                            size="small"
+                                                            variant="contained"
+                                                            color="info"
+                                                            onClick={() => handleStatusChange(a._id, 'in_progress')}
+                                                        >
+                                                            Tiếp nhận
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            color="error"
+                                                            onClick={() => handleStatusChange(a._id, 'cancelled')}
+                                                        >
+                                                            Từ chối
+                                                        </Button>
+                                                    </Box>
+                                                ) : (
+                                                    <Chip
+                                                        label={STATUS_META[a.status]?.label || a.status}
+                                                        size="small"
+                                                        color={STATUS_META[a.status]?.color || 'default'}
+                                                    />
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );

@@ -41,7 +41,7 @@ const userController = {
             const user = await userCrudService.createUser(req.body);
             res.status(201).json({ success: true, data: { _id: user._id, username: user.username, role: user.role, fullName: user.fullName }, message: 'Tạo tài khoản thành công' });
         } catch (error) {
-            if (error.message.includes('tồn tại')) {
+            if (error?.code === 11000 || error.message.includes('tồn tại')) {
                 return res.status(409).json({ success: false, message: error.message });
             }
             res.status(500).json({ success: false, message: error.message });

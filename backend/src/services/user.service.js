@@ -34,20 +34,28 @@ const getUserById = async (id) => {
 };
 
 const createUser = async ({ username, password, role, fullName, email, phone }) => {
-    const exists = await User.findOne({ username: username.toLowerCase().trim() });
+    const normalizedUsername = String(username || '').toLowerCase().trim();
+    const exists = await User.findOne({ username: normalizedUsername });
     if (exists) throw new Error('Tên đăng nhập đã tồn tại');
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    return await User.create({
-        username: username.toLowerCase().trim(),
-        password: hashedPassword,
-        role: role || 'staff',
-        fullName: fullName || '',
-        email: email || '',
-        phone: phone || '',
-    });
+    try {
+        return await User.create({
+            username: normalizedUsername,
+            password: hashedPassword,
+            role: role || 'staff',
+            fullName: fullName || '',
+            email: email || '',
+            phone: phone || '',
+        });
+    } catch (error) {
+        if (error?.code === 11000) {
+            throw new Error('Tên đăng nhập đã tồn tại');
+        }
+        throw error;
+    }
 };
 
 const updateUser = async (id, updateData) => {

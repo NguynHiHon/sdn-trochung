@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -19,6 +19,8 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import ExploreIcon from "@mui/icons-material/Explore";
+import StaffNotificationBell from "../staff/StaffNotificationBell";
+import { connectSocket, disconnectSocket } from "../../config/socketClient";
 
 const drawerWidth = 240;
 
@@ -27,6 +29,14 @@ export default function StaffLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = useSelector((state) => state.auth.currentUser);
+
+  useEffect(() => {
+    if (!currentUser?._id) return;
+    connectSocket(currentUser._id, currentUser.role, currentUser.username);
+    return () => {
+      disconnectSocket();
+    };
+  }, [currentUser?._id, currentUser?.role, currentUser?.username]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -121,6 +131,7 @@ export default function StaffLayout() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Khu vực Nhân viên
           </Typography>
+          <StaffNotificationBell />
           <Avatar sx={{ bgcolor: "#2b6f56" }}>
             {(currentUser?.fullName || currentUser?.username || "NV")
               .charAt(0)

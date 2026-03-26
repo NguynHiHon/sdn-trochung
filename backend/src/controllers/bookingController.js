@@ -6,7 +6,7 @@ const getTourAvailability = async (req, res) => {
         const { month, year } = req.query;
 
         const availability = await bookingService.getAvailability(tourId, month, year);
-        
+
         const responseData = availability.map(a => ({
             id: a._id,
             tourId: a.tourId,
@@ -18,7 +18,7 @@ const getTourAvailability = async (req, res) => {
             remainingSlots: a.capacity - a.bookedSlots,
             status: a.status
         }));
-        
+
         res.status(200).json({ success: true, data: responseData });
     } catch (error) {
         if (error.message === 'Tour not found') {
@@ -43,17 +43,17 @@ const holdBooking = async (req, res) => {
             participants
         });
 
-        res.status(201).json({ 
-            success: true, 
+        res.status(201).json({
+            success: true,
             bookingCode: newBooking.bookingCode,
-            data: newBooking, 
-            message: 'Đặt tour thành công! Nhân viên sẽ liên hệ bạn trong 24 giờ.' 
+            data: newBooking,
+            message: 'Đặt tour thành công! Nhân viên sẽ liên hệ bạn trong 24 giờ.'
         });
     } catch (error) {
         console.error('[holdBooking] ERROR:', error.message);
         console.error('[holdBooking] STACK:', error.stack);
         console.error('[holdBooking] REQ BODY:', JSON.stringify(req.body, null, 2));
-        
+
         const _msg = error.message;
         if (_msg.includes('Tuổi') || _msg.includes('participants') || _msg.includes('bắt buộc')) {
             return res.status(400).json({ success: false, message: _msg });
@@ -71,7 +71,7 @@ const holdBooking = async (req, res) => {
 const confirmBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body.userId;
+        const userId = req.user?._id || req.body?.userId;
 
         const confirmedBooking = await bookingService.confirmBooking(id, userId);
         res.status(200).json({ success: true, data: confirmedBooking, message: 'Booking confirmed successfully' });
@@ -89,7 +89,7 @@ const confirmBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body.userId;
+        const userId = req.user?._id || req.body?.userId;
         const { reason } = req.body;
 
         const cancelledBooking = await bookingService.cancelBooking(id, userId, reason);

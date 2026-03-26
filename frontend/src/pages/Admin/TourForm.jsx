@@ -28,7 +28,7 @@ export default function TourForm() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [caves, setCaves] = useState([]);
-  
+
   // Media Picker Logic
   const [pickerConfig, setPickerConfig] = useState({ open: false, type: '', multiple: false });
 
@@ -164,22 +164,81 @@ export default function TourForm() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name.vi || !form.name.en || !form.code || !form.slug || !form.priceVND) {
+    const nameVi = form.name.vi?.trim();
+    const nameEn = form.name.en?.trim();
+    const code = form.code?.trim();
+    const slug = form.slug?.trim();
+
+    if (!nameVi || !nameEn || !code || !slug || form.priceVND === '' || form.durationDays === '') {
       toast.warning('Vui lòng điền đủ các trường bắt buộc (Tên, Mã, Slug, Giá)');
       return;
     }
+
+    if (!/^[A-Za-z0-9_-]{2,30}$/.test(code)) {
+      toast.warning('Mã tour chỉ gồm chữ/số/_/- và dài 2-30 ký tự');
+      return;
+    }
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      toast.warning('Slug chỉ được chứa chữ thường, số và dấu gạch ngang');
+      return;
+    }
+
+    const priceVND = Number(form.priceVND);
+    const priceUSD = form.priceUSD === '' ? undefined : Number(form.priceUSD);
+    const durationDays = Number(form.durationDays);
+    const adventureLevel = Number(form.adventureLevel);
+    const groupSize = form.groupSize === '' ? undefined : Number(form.groupSize);
+    const ageMin = form.ageMin === '' ? undefined : Number(form.ageMin);
+    const ageMax = form.ageMax === '' ? undefined : Number(form.ageMax);
+
+    if (!Number.isFinite(priceVND) || priceVND < 0) {
+      toast.warning('Giá VND phải là số không âm');
+      return;
+    }
+    if (priceUSD !== undefined && (!Number.isFinite(priceUSD) || priceUSD < 0)) {
+      toast.warning('Giá USD phải là số không âm');
+      return;
+    }
+    if (!Number.isInteger(durationDays) || durationDays < 1) {
+      toast.warning('Số ngày phải là số nguyên >= 1');
+      return;
+    }
+    if (!Number.isInteger(adventureLevel) || adventureLevel < 1 || adventureLevel > 6) {
+      toast.warning('Độ khó phải từ 1 đến 6');
+      return;
+    }
+    if (groupSize !== undefined && (!Number.isInteger(groupSize) || groupSize < 1)) {
+      toast.warning('Số người/tour phải là số nguyên >= 1');
+      return;
+    }
+    if (ageMin !== undefined && (!Number.isInteger(ageMin) || ageMin < 0 || ageMin > 120)) {
+      toast.warning('Tuổi tối thiểu phải trong khoảng 0-120');
+      return;
+    }
+    if (ageMax !== undefined && (!Number.isInteger(ageMax) || ageMax < 0 || ageMax > 120)) {
+      toast.warning('Tuổi tối đa phải trong khoảng 0-120');
+      return;
+    }
+    if (ageMin !== undefined && ageMax !== undefined && ageMin > ageMax) {
+      toast.warning('Tuổi tối thiểu không được lớn hơn tuổi tối đa');
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = { ...form };
-      
-      payload.priceVND = Number(payload.priceVND);
-      if (payload.priceUSD) payload.priceUSD = Number(payload.priceUSD);
-      payload.durationDays = Number(payload.durationDays);
-      payload.adventureLevel = Number(payload.adventureLevel);
-      if (payload.groupSize) payload.groupSize = Number(payload.groupSize);
-      if (payload.ageMin) payload.ageMin = Number(payload.ageMin);
-      if (payload.ageMax) payload.ageMax = Number(payload.ageMax);
-      
+      payload.name = { vi: nameVi, en: nameEn };
+      payload.code = code;
+      payload.slug = slug;
+      payload.priceVND = priceVND;
+      if (priceUSD !== undefined) payload.priceUSD = priceUSD;
+      payload.durationDays = durationDays;
+      payload.adventureLevel = adventureLevel;
+      if (groupSize !== undefined) payload.groupSize = groupSize;
+      if (ageMin !== undefined) payload.ageMin = ageMin;
+      if (ageMax !== undefined) payload.ageMax = ageMax;
+
       if (!payload.categoryId) delete payload.categoryId;
       if (!payload.caveId) delete payload.caveId;
       if (!payload.thumbnail) delete payload.thumbnail;
@@ -243,12 +302,12 @@ export default function TourForm() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>{renderBilingualField('Tên Tour', 'name')}</Grid>
             <Grid item xs={12} md={6}>{renderBilingualField('Mô tả ngắn', 'description')}</Grid>
-            
+
             <Grid item xs={3}><TextField fullWidth size="small" label="Mã tour" required value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} /></Grid>
             <Grid item xs={3}><TextField fullWidth size="small" label="Slug (URL)" required value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></Grid>
             <Grid item xs={3}><TextField fullWidth size="small" label="Giá (VNĐ)" type="number" required value={form.priceVND} onChange={e => setForm({ ...form, priceVND: e.target.value })} /></Grid>
             <Grid item xs={3}><TextField fullWidth size="small" label="Giá (USD)" type="number" value={form.priceUSD} onChange={e => setForm({ ...form, priceUSD: e.target.value })} /></Grid>
-            
+
             <Grid item xs={2}><TextField fullWidth size="small" label="Số ngày" type="number" required value={form.durationDays} onChange={e => setForm({ ...form, durationDays: e.target.value })} /></Grid>
             <Grid item xs={2}>
               <TextField fullWidth size="small" select label="Độ khó (1-6)" value={form.adventureLevel} onChange={e => setForm({ ...form, adventureLevel: e.target.value })}>
@@ -258,7 +317,7 @@ export default function TourForm() {
             <Grid item xs={2}><TextField fullWidth size="small" label="Người/Tour" type="number" value={form.groupSize} onChange={e => setForm({ ...form, groupSize: e.target.value })} /></Grid>
             <Grid item xs={2}><TextField fullWidth size="small" label="Tuổi Min" type="number" value={form.ageMin} onChange={e => setForm({ ...form, ageMin: e.target.value })} /></Grid>
             <Grid item xs={2}><TextField fullWidth size="small" label="Tuổi Max" type="number" value={form.ageMax} onChange={e => setForm({ ...form, ageMax: e.target.value })} /></Grid>
-            
+
             <Grid item xs={2}>
               <TextField fullWidth size="small" select label="Loại Tour" value={form.tourType} onChange={e => setForm({ ...form, tourType: e.target.value })}>
                 <MenuItem value="multiday">Tour dài ngày</MenuItem>
@@ -294,21 +353,21 @@ export default function TourForm() {
           <Grid container spacing={4}>
             <Grid item xs={4}>
               <Typography variant="body2" mb={1} fontWeight="bold">Thumbnail (Ảnh vuông/Vuông đại diện)</Typography>
-              <Button variant="outlined" startIcon={<PhotoLibraryIcon/>} fullWidth onClick={() => setPickerConfig({ open: true, type: 'thumbnail', multiple: false })}>
+              <Button variant="outlined" startIcon={<PhotoLibraryIcon />} fullWidth onClick={() => setPickerConfig({ open: true, type: 'thumbnail', multiple: false })}>
                 {form.thumbnail ? 'Đổi Thumbnail' : 'Chọn Thumbnail'}
               </Button>
               {form.thumbnail && <Typography variant="caption" color="success.main" display="block" mt={1}>Đã chọn 1 ảnh</Typography>}
             </Grid>
             <Grid item xs={4}>
               <Typography variant="body2" mb={1} fontWeight="bold">Banner Cover (Dành cho Tour Detail)</Typography>
-              <Button variant="outlined" color="secondary" startIcon={<PhotoLibraryIcon/>} fullWidth onClick={() => setPickerConfig({ open: true, type: 'banner', multiple: false })}>
+              <Button variant="outlined" color="secondary" startIcon={<PhotoLibraryIcon />} fullWidth onClick={() => setPickerConfig({ open: true, type: 'banner', multiple: false })}>
                 {form.banner ? 'Đổi Banner' : 'Chọn Banner'}
               </Button>
               {form.banner && <Typography variant="caption" color="success.main" display="block" mt={1}>Đã chọn 1 ảnh</Typography>}
             </Grid>
             <Grid item xs={4}>
               <Typography variant="body2" mb={1} fontWeight="bold">Gallery Album ({form.gallery.length} ảnh)</Typography>
-              <Button variant="contained" color="info" startIcon={<PhotoLibraryIcon/>} fullWidth onClick={() => setPickerConfig({ open: true, type: 'gallery', multiple: true })}>
+              <Button variant="contained" color="info" startIcon={<PhotoLibraryIcon />} fullWidth onClick={() => setPickerConfig({ open: true, type: 'gallery', multiple: true })}>
                 Chỉnh sửa Album Ảnh
               </Button>
             </Grid>
@@ -373,7 +432,7 @@ export default function TourForm() {
           <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={addFaq} sx={{ mb: 2 }}>Thêm Câu hỏi</Button>
           {form.faqs.map((faq, idx) => (
             <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f1f5f9' }}>
-               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Q&A #{idx + 1}</Typography>
                 <IconButton size="small" onClick={() => removeFaq(idx)}><DeleteIcon fontSize="small" color="error" /></IconButton>
               </Box>

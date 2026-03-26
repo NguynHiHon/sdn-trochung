@@ -33,6 +33,15 @@ const updateStatus = async (req, res) => {
         const assignment = await assignmentService.updateAssignmentStatus(req.params.id, status, req.user._id);
         res.status(200).json({ success: true, data: assignment, message: 'Cập nhật trạng thái thành công' });
     } catch (error) {
+        if (error.message === 'Assignment not found') {
+            return res.status(404).json({ success: false, message: 'Yêu cầu tư vấn không tồn tại' });
+        }
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        if (error.message.includes('chỉ có thể') || error.message.includes('đã được xử lý')) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         res.status(500).json({ success: false, message: error.message });
     }
 };

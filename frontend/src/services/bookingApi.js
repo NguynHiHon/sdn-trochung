@@ -20,6 +20,11 @@ export const getBookingById = async (id) => {
   return response.data;
 };
 
+export const confirmBooking = async (id) => {
+  const response = await axiosJWT.post(`/api/booking/confirm/${id}`);
+  return response.data;
+};
+
 export const cancelBookingByAdmin = async (id, reason = '') => {
   const response = await axiosJWT.post(`/api/booking/cancel/${id}`, { reason });
   return response.data;

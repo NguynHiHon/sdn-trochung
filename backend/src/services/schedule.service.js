@@ -1,7 +1,7 @@
 const Schedule = require('../models/schedule.model');
 const Tour = require('../models/tour.model');
 
-const getAllSchedules = async ({ tourId, status, month, year, tourGuideId, page = 1, limit = 20 }) => {
+const getAllSchedules = async ({ tourId, status, hidden = 'all', month, year, tourGuideId, page = 1, limit = 20 }) => {
   const filter = {};
 
   if (tourId && tourId !== 'all') {
@@ -9,6 +9,11 @@ const getAllSchedules = async ({ tourId, status, month, year, tourGuideId, page 
   }
   if (status && status !== 'all') {
     filter.status = status;
+  }
+  if (hidden === 'visible') {
+    filter.isHidden = false;
+  } else if (hidden === 'hidden') {
+    filter.isHidden = true;
   }
   if (tourGuideId && tourGuideId !== 'all') {
     filter.tourGuideId = tourGuideId;
@@ -47,8 +52,15 @@ const getScheduleById = async (id) => {
 };
 
 const createSchedule = async (data) => {
-  const newSchedule = new Schedule(data);
-  return await newSchedule.save();
+  try {
+    const newSchedule = new Schedule(data);
+    return await newSchedule.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error('Lịch khởi hành cho tour này đã tồn tại tại thời điểm đã chọn. Vui lòng chọn ngày/giờ khác.');
+    }
+    throw error;
+  }
 };
 
 const bulkCreateSchedules = async (tourId, dates) => {
@@ -56,6 +68,15 @@ const bulkCreateSchedules = async (tourId, dates) => {
   if (!tour) throw new Error('Tour không tồn tại');
 
   const durationMs = (tour.durationDays - 1) * 24 * 60 * 60 * 1000;
+
+  const starts = dates.map((date) => new Date(date));
+  const existed = await Schedule.find({ tourId, startDate: { $in: starts } }).select('startDate');
+  if (existed.length > 0) {
+    const existedDates = existed
+      .map((s) => new Date(s.startDate).toLocaleDateString('vi-VN'))
+      .join(', ');
+    throw new Error(`Tour đã có lịch trùng ngày: ${existedDates}. Vui lòng bỏ các ngày trùng rồi thử lại.`);
+  }
 
   const schedules = dates.map(date => {
     const start = new Date(date);
@@ -66,11 +87,19 @@ const bulkCreateSchedules = async (tourId, dates) => {
       endDate: end,
       capacity: tour.groupSize || 10,
       bookedSlots: 0,
-      status: 'Available'
+      status: 'Available',
+      isHidden: false,
     };
   });
 
-  return await Schedule.insertMany(schedules);
+  try {
+    return await Schedule.insertMany(schedules);
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error('Có lịch trùng với dữ liệu hiện có, vui lòng kiểm tra lại danh sách ngày.');
+    }
+    throw error;
+  }
 };
 
 const updateScheduleById = async (id, updateData) => {
@@ -79,8 +108,19 @@ const updateScheduleById = async (id, updateData) => {
   const schedule = await Schedule.findById(id);
   if (!schedule) return null;
 
+  if (Object.prototype.hasOwnProperty.call(updateData, 'startDate') || Object.prototype.hasOwnProperty.call(updateData, 'endDate')) {
+    throw new Error('Không cho phép sửa ngày khởi hành/kết thúc. Vui lòng tạo lịch mới nếu cần đổi ngày.');
+  }
+
   Object.assign(schedule, updateData);
-  return await schedule.save();
+  try {
+    return await schedule.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error('Lịch khởi hành cho tour này đã tồn tại tại thời điểm đã chọn.');
+    }
+    throw error;
+  }
 };
 
 const deleteScheduleById = async (id) => {

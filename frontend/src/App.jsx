@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -22,6 +22,7 @@ import NewsCategoryPage from "./pages/NewsCategoryPage";
 import NewsArticlePage from "./pages/NewsArticlePage";
 import FaqsPage from "./pages/FaqsPage";
 import MainLayout from "./components/layout/MainLayout";
+import AdminRouteGuard from "./components/common/AdminRouteGuard";
 
 // Staff
 import StaffLayout from "./components/layout/StaffLayout";
@@ -45,7 +46,6 @@ import NewsArticleForm from "./pages/Admin/NewsArticleForm";
 
 // Setup axios interceptors once
 setupJwtInterceptors(store);
-
 function App() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
@@ -81,40 +81,42 @@ function App() {
           </Route>
 
           {/* Manager Routes */}
-          <Route path="/manager" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="media" element={<MediaManager />} />
-            <Route path="caves" element={<CaveManager />} />
-            <Route path="caves/create" element={<CaveForm />} />
-            <Route path="caves/edit/:id" element={<CaveForm />} />
-            <Route path="tours" element={<TourManager />} />
-            <Route path="tours/create" element={<TourForm />} />
-            <Route path="tours/edit/:id" element={<TourForm />} />
-            <Route path="schedules" element={<ScheduleManager />} />
-            <Route path="bookings" element={<BookingManager />} />
-            <Route path="accounts" element={<AccountManager />} />
-            <Route path="posts" element={<PostsManagerPage />} />
-            <Route
-              path="news/categories"
-              element={<Navigate to="/manager/posts" replace />}
-            />
-            <Route
-              path="news/articles"
-              element={
-                <Navigate to="/manager/posts" replace state={{ postsTab: 1 }} />
-              }
-            />
-            <Route
-              path="faqs"
-              element={
-                <Navigate to="/manager/posts" replace state={{ postsTab: 2 }} />
-              }
-            />
-            <Route path="news/articles/create" element={<NewsArticleForm />} />
-            <Route
-              path="news/articles/edit/:id"
-              element={<NewsArticleForm />}
-            />
+          <Route path="/manager" element={<AdminRouteGuard />}>
+            <Route element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="media" element={<MediaManager />} />
+              <Route path="caves" element={<CaveManager />} />
+              <Route path="caves/create" element={<CaveForm />} />
+              <Route path="caves/edit/:id" element={<CaveForm />} />
+              <Route path="tours" element={<TourManager />} />
+              <Route path="tours/create" element={<TourForm />} />
+              <Route path="tours/edit/:id" element={<TourForm />} />
+              <Route path="schedules" element={<ScheduleManager />} />
+              <Route path="bookings" element={<BookingManager />} />
+              <Route path="accounts" element={<AccountManager />} />
+              <Route path="posts" element={<PostsManagerPage />} />
+              <Route
+                path="news/categories"
+                element={<Navigate to="/manager/posts" replace />}
+              />
+              <Route
+                path="news/articles"
+                element={
+                  <Navigate to="/manager/posts" replace state={{ postsTab: 1 }} />
+                }
+              />
+              <Route
+                path="faqs"
+                element={
+                  <Navigate to="/manager/posts" replace state={{ postsTab: 2 }} />
+                }
+              />
+              <Route path="news/articles/create" element={<NewsArticleForm />} />
+              <Route
+                path="news/articles/edit/:id"
+                element={<NewsArticleForm />}
+              />
+            </Route>
           </Route>
 
           {/* Staff Routes */}

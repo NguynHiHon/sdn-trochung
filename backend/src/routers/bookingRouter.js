@@ -1,25 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
-const { body, param, query, validationResult } = require('express-validator');
-
-// ── express-validator v7: dùng .run(req) thay vì truyền validator array ──
-const runValidation = (validations) => {
-    return async (req, res, next) => {
-        for (const validation of validations) {
-            await validation.run(req);
-        }
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: errors.array()[0].msg,
-                errors: errors.array()
-            });
-        }
-        next();
-    };
-};
+const { body, param, query } = require('express-validator');
+const runValidation = require('../middlewares/runValidation');
+const authMiddleWare = require('../middlewares/authMiddleWare');
+const { validateBookingCancel, validateBookingListQuery } = require('../validators/adminCrud.validator');
 
 // ── GET /availability/:tourId — Lấy lịch trống theo tour ──
 router.get('/availability/:tourId', runValidation([
@@ -49,24 +34,24 @@ router.post('/booking/hold', runValidation([
 // ── POST /booking/confirm/:id ──
 router.post('/booking/confirm/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), bookingController.confirmBooking);
+]), authMiddleWare.verifyAdmin, bookingController.confirmBooking);
 
 // ── POST /booking/cancel/:id ──
 router.post('/booking/cancel/:id', runValidation([
-    param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), bookingController.cancelBooking);
+    ...validateBookingCancel,
+]), authMiddleWare.verifyAdmin, bookingController.cancelBooking);
 
 // ── POST /booking/complete/:id ──
 router.post('/booking/complete/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), bookingController.completeBooking);
+]), authMiddleWare.verifyAdmin, bookingController.completeBooking);
 
 // ── GET /bookings ──
-router.get('/bookings', bookingController.getAllBookings);
+router.get('/bookings', runValidation(validateBookingListQuery), authMiddleWare.verifyAdmin, bookingController.getAllBookings);
 
 // ── GET /bookings/:id ──
 router.get('/bookings/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), bookingController.getBookingById);
+]), authMiddleWare.verifyAdmin, bookingController.getBookingById);
 
 module.exports = router;

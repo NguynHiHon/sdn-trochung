@@ -38,6 +38,16 @@ const updateParticipant = async (req, res) => {
   }
 };
 
+const updateParticipantReviewStatus = async (req, res) => {
+  try {
+    const updated = await ParticipantService.updateParticipantReviewStatus(req.params.id, req.body?.reviewStatus);
+    if (!updated) return res.status(404).json({ success: false, message: 'Khách hàng không tồn tại' });
+    res.status(200).json({ success: true, data: updated, message: 'Đã cập nhật trạng thái khách' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 const deleteParticipant = async (req, res) => {
   try {
     await ParticipantService.deleteParticipantById(req.params.id);
@@ -52,5 +62,6 @@ module.exports = {
   getParticipantById,
   createParticipant,
   updateParticipant,
+  updateParticipantReviewStatus,
   deleteParticipant
 };

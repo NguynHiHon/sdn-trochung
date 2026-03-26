@@ -23,18 +23,19 @@ export const getSocket = () => {
  * Kết nối + đăng ký user với server
  * @param {string} userId
  * @param {string} role - 'admin' | 'staff'
+ * @param {string} username
  */
-export const connectSocket = (userId, role) => {
+export const connectSocket = (userId, role, username) => {
     const s = getSocket();
     if (!s.connected) {
         s.connect();
     }
     s.once('connect', () => {
-        s.emit('register', { userId, role });
+        s.emit('register', { userId, role, username });
     });
     // Nếu đã connect rồi thì emit ngay
     if (s.connected) {
-        s.emit('register', { userId, role });
+        s.emit('register', { userId, role, username });
     }
     return s;
 };

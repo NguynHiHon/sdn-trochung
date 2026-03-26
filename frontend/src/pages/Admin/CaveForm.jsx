@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Button, TextField, MenuItem, Paper, Tabs, Tab, CircularProgress
+  Box, Typography, Button, TextField, MenuItem, Paper, Tabs, Tab, CircularProgress,
+  Card, CardMedia, CardContent, Chip
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import { toast } from 'sonner';
@@ -21,6 +22,7 @@ export default function CaveForm() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [medias, setMedias] = useState([]);
+  const [mediaSearch, setMediaSearch] = useState('');
 
   const [form, setForm] = useState({
     name: { vi: '', en: '' },
@@ -39,7 +41,7 @@ export default function CaveForm() {
     // Load danh sách ảnh cho dropdown chọn thumbnail
     getAllMedia({ limit: 200 }).then(res => {
       if (res.success) setMedias(res.data);
-    }).catch(() => {});
+    }).catch(() => { });
 
     if (isEdit) {
       getCaveById(id).then(res => {
@@ -67,18 +69,82 @@ export default function CaveForm() {
     setForm(prev => ({ ...prev, [field]: { ...prev[field], [lang]: value } }));
   };
 
+  const filteredMedias = medias.filter((m) => {
+    const keyword = mediaSearch.trim().toLowerCase();
+    if (!keyword) return true;
+    return `${m.name || ''} ${m.type || ''}`.toLowerCase().includes(keyword);
+  });
+
+  const toggleGalleryMedia = (mediaId) => {
+    setForm((prev) => {
+      const exists = prev.gallery.includes(mediaId);
+      return {
+        ...prev,
+        gallery: exists ? prev.gallery.filter((id) => id !== mediaId) : [...prev.gallery, mediaId],
+      };
+    });
+  };
+
+  const parseOptionalNumber = (value) => {
+    if (value === '' || value === null || value === undefined) return undefined;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
   const handleSubmit = async () => {
-    if (!form.name.vi || !form.name.en) {
+    if (!form.name.vi?.trim() || !form.name.en?.trim()) {
       toast.warning('Vui lòng nhập tên hang động cả Tiếng Việt và Tiếng Anh');
       return;
     }
+
+    const latRaw = form.location?.lat;
+    const lngRaw = form.location?.lng;
+    const hasLat = latRaw !== '' && latRaw !== null && latRaw !== undefined;
+    const hasLng = lngRaw !== '' && lngRaw !== null && lngRaw !== undefined;
+
+    if (hasLat !== hasLng) {
+      toast.warning('Vui lòng nhập đồng thời cả vĩ độ và kinh độ');
+      return;
+    }
+
+    const lat = parseOptionalNumber(latRaw);
+    const lng = parseOptionalNumber(lngRaw);
+    const length = parseOptionalNumber(form.length);
+    const depth = parseOptionalNumber(form.depth);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      toast.warning('Kinh độ/vĩ độ phải là số hợp lệ');
+      return;
+    }
+    if (lat !== undefined && (lat < -90 || lat > 90)) {
+      toast.warning('Vĩ độ (Lat) phải trong khoảng -90 đến 90');
+      return;
+    }
+    if (lng !== undefined && (lng < -180 || lng > 180)) {
+      toast.warning('Kinh độ (Lng) phải trong khoảng -180 đến 180');
+      return;
+    }
+
+    if (Number.isNaN(length) || (length !== undefined && length < 0)) {
+      toast.warning('Chiều dài phải là số không âm');
+      return;
+    }
+    if (Number.isNaN(depth) || (depth !== undefined && depth < 0)) {
+      toast.warning('Độ sâu phải là số không âm');
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
         ...form,
-        length: form.length ? Number(form.length) : undefined,
-        depth: form.depth ? Number(form.depth) : undefined,
-        location: (form.location.lat && form.location.lng) ? { lat: Number(form.location.lat), lng: Number(form.location.lng) } : undefined,
+        name: {
+          vi: form.name.vi.trim(),
+          en: form.name.en.trim(),
+        },
+        length,
+        depth,
+        location: hasLat && hasLng ? { lat, lng } : undefined,
         thumbnail: form.thumbnail || undefined,
         gallery: form.gallery.length > 0 ? form.gallery : undefined,
       };
@@ -144,10 +210,10 @@ export default function CaveForm() {
             <TextField fullWidth label="Độ sâu (m)" type="number" value={form.depth} onChange={e => setForm({ ...form, depth: e.target.value })} />
           </Grid>
           <Grid item xs={6} md={3}>
-            <TextField fullWidth label="Vĩ độ (Lat)" type="number" value={form.location.lat} onChange={e => setForm({ ...form, location: { ...form.location, lat: e.target.value } })} />
+            <TextField fullWidth label="Vĩ độ (Lat)" type="number" inputProps={{ step: 'any', min: -90, max: 90 }} value={form.location.lat} onChange={e => setForm({ ...form, location: { ...form.location, lat: e.target.value } })} />
           </Grid>
           <Grid item xs={6} md={3}>
-            <TextField fullWidth label="Kinh độ (Lng)" type="number" value={form.location.lng} onChange={e => setForm({ ...form, location: { ...form.location, lng: e.target.value } })} />
+            <TextField fullWidth label="Kinh độ (Lng)" type="number" inputProps={{ step: 'any', min: -180, max: 180 }} value={form.location.lng} onChange={e => setForm({ ...form, location: { ...form.location, lng: e.target.value } })} />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField fullWidth select label="Cấp độ di sản" value={form.heritageLevel} onChange={e => setForm({ ...form, heritageLevel: e.target.value })}>
@@ -162,11 +228,68 @@ export default function CaveForm() {
 
       {/* Ảnh đại diện */}
       <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>Ảnh từ Thư Viện</Typography>
-        <TextField fullWidth select label="Ảnh đại diện (Thumbnail)" value={form.thumbnail} onChange={e => setForm({ ...form, thumbnail: e.target.value })}>
-          <MenuItem value="">-- Không chọn --</MenuItem>
-          {medias.map(m => <MenuItem key={m._id} value={m._id}>{m.name} ({m.type})</MenuItem>)}
-        </TextField>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>Chọn ảnh cho hang động</Typography>
+        <TextField
+          fullWidth
+          size="small"
+          label="Tìm ảnh theo tên hoặc loại"
+          value={mediaSearch}
+          onChange={(e) => setMediaSearch(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        {form.thumbnail && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>Thumbnail hiện tại</Typography>
+            <Card sx={{ maxWidth: 340 }}>
+              <CardMedia
+                component="img"
+                height="180"
+                image={medias.find((m) => m._id === form.thumbnail)?.url || ''}
+                alt="Thumbnail"
+                sx={{ objectFit: 'cover' }}
+              />
+              <CardContent sx={{ py: 1.5 }}>
+                <Typography variant="body2" fontWeight={600}>{medias.find((m) => m._id === form.thumbnail)?.name || 'Ảnh đã chọn'}</Typography>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
+        <Grid container spacing={2}>
+          {filteredMedias.map((m) => {
+            const isThumbnail = form.thumbnail === m._id;
+            const inGallery = form.gallery.includes(m._id);
+            return (
+              <Grid item xs={12} sm={6} md={4} key={m._id}>
+                <Card sx={{ border: isThumbnail ? '2px solid #1976d2' : '1px solid #e2e8f0' }}>
+                  <CardMedia component="img" height="160" image={m.url} alt={m.name} sx={{ objectFit: 'cover' }} />
+                  <CardContent>
+                    <Typography variant="subtitle2" noWrap title={m.name}>{m.name}</Typography>
+                    <Chip size="small" label={m.type} sx={{ mt: 0.5, mb: 1 }} />
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant={isThumbnail ? 'contained' : 'outlined'}
+                        onClick={() => setForm((prev) => ({ ...prev, thumbnail: isThumbnail ? '' : m._id }))}
+                      >
+                        {isThumbnail ? 'Đang là thumbnail' : 'Đặt thumbnail'}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant={inGallery ? 'contained' : 'outlined'}
+                        color="secondary"
+                        onClick={() => toggleGalleryMedia(m._id)}
+                      >
+                        {inGallery ? 'Bỏ gallery' : 'Thêm gallery'}
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
       </Paper>
 
       {/* Actions */}

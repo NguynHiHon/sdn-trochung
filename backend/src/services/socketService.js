@@ -17,6 +17,7 @@ const init = (socketIoInstance) => {
             console.log(`[Socket:register] Received raw data:`, data);
             const userId = typeof data === 'object' ? data.userId : data;
             const role = typeof data === 'object' ? data.role : null;
+            const username = typeof data === 'object' ? data.username : null;
 
             if (!userId) {
                 console.log(`[Socket:register] Missing userId.`);
@@ -28,9 +29,18 @@ const init = (socketIoInstance) => {
             socket.join(roomName);
             console.log(`[Socket:register] Socket joined room: ${roomName}`);
 
+            if (username) {
+                const usernameRoom = `username_${String(username).toLowerCase()}`;
+                socket.join(usernameRoom);
+                console.log(`[Socket:register] Socket joined room: ${usernameRoom}`);
+            }
+
             if (role === 'admin') {
                 socket.join('role_admin');
                 console.log(`[Socket:register] Socket joined room: role_admin`);
+            } else if (role === 'staff') {
+                socket.join('role_staff');
+                console.log(`[Socket:register] Socket joined room: role_staff`);
             }
 
             if (!userSocketMap.has(userId)) {

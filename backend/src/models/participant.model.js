@@ -22,56 +22,64 @@ const participantSchema = new Schema(
         nationality: { type: String, required: true },
         email: { type: String },
         phone: { type: String },
-        contactMethod: { 
-            type: String, 
-            enum: ['Zalo', 'Viber', 'Email', 'WhatsApp', 'Phone', 'None'], 
-            default: 'None' 
+        contactMethod: {
+            type: String,
+            enum: ['Zalo', 'Viber', 'Email', 'WhatsApp', 'Phone', 'None'],
+            default: 'None'
         },
 
         // Khảo sát Sức khỏe (Health Survey)
         healthSurvey: {
             medicalConditions: { type: String, default: '' }, // Bệnh lý nền (Nêu chi tiết nếu có)
-            exerciseFrequency: { 
-                type: String, 
+            exerciseFrequency: {
+                type: String,
                 enum: ['None', '1-2 times/week', '3-4 times/week', '5+ times/week'],
                 default: 'None'
             },
-            trekkingExperience: { 
-                type: String, 
+            trekkingExperience: {
+                type: String,
                 enum: ['Never', 'Beginner', 'Intermediate', 'Advanced'],
                 default: 'Never'
             },
-            fitnessLevel: { 
-                type: String, 
-                enum: ['Average', 'Good', 'Excellent'], 
-                default: 'Average' 
+            fitnessLevel: {
+                type: String,
+                enum: ['Average', 'Good', 'Excellent'],
+                default: 'Average'
             },
-            swimmingAbility: { 
-                type: String, 
-                enum: ['Cannot swim', 'Basic', 'Good'], 
-                default: 'Cannot swim' 
+            swimmingAbility: {
+                type: String,
+                enum: ['Cannot swim', 'Basic', 'Good'],
+                default: 'Cannot swim'
             }
         },
 
         // Yêu cầu & Tùy chọn (Options & Preferences)
         preferences: {
             allergies: { type: String, default: '' }, // Dị ứng thực phẩm/côn trùng/thời tiết
-            dietaryPreference: { 
-                type: String, 
-                enum: ['None', 'Vegetarian', 'Vegan', 'No Beef', 'No Pork', 'Gluten Free', 'Other'], 
-                default: 'None' 
+            dietaryPreference: {
+                type: String,
+                enum: ['None', 'Vegetarian', 'Vegan', 'No Beef', 'No Pork', 'Gluten Free', 'Other'],
+                default: 'None'
             },
-            accommodationOption: { 
-                type: String, 
-                enum: ['Hotel', 'Camping', 'Homestay', 'None'], 
-                default: 'None' 
+            accommodationOption: {
+                type: String,
+                enum: ['Hotel', 'Camping', 'Homestay', 'None'],
+                default: 'None'
             },
-            tentPreference: { 
-                type: String, 
-                enum: ['Single', 'Shared', 'None'], 
-                default: 'None' 
+            tentPreference: {
+                type: String,
+                enum: ['Single', 'Shared', 'None'],
+                default: 'None'
             }
-        }
+        },
+
+        // Đánh giá khả năng tham gia tour trong giai đoạn booking
+        reviewStatus: {
+            type: String,
+            enum: ['approved', 'rejected'],
+            default: 'approved',
+            index: true,
+        },
     },
     {
         timestamps: true,
