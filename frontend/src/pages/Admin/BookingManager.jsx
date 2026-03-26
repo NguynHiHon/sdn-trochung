@@ -18,7 +18,7 @@ import { getAllTours } from '../../services/tourApi';
 import { getStaffList } from '../../services/userApi';
 import { assignBooking } from '../../services/assignmentApi';
 
-const statusColor = { HOLD: 'warning', CONFIRMED: 'success', CANCELLED: 'error', COMPLETED: 'info' };
+const statusColor = { HOLD: 'warning', CONFIRMED: 'success', DEPARTED: 'warning', CANCELLED: 'error', COMPLETED: 'info' };
 
 export default function BookingManager() {
     const [bookings, setBookings] = useState([]);
@@ -197,6 +197,7 @@ export default function BookingManager() {
                     <MenuItem value="all">Tất cả</MenuItem>
                     <MenuItem value="HOLD">Giữ chỗ</MenuItem>
                     <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
+                    <MenuItem value="DEPARTED">Khởi hành</MenuItem>
                     <MenuItem value="CANCELLED">Đã hủy</MenuItem>
                     <MenuItem value="COMPLETED">Hoàn thành</MenuItem>
                 </TextField>

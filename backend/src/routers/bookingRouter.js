@@ -34,24 +34,34 @@ router.post('/booking/hold', runValidation([
 // ── POST /booking/confirm/:id ──
 router.post('/booking/confirm/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), authMiddleWare.verifyAdmin, bookingController.confirmBooking);
+]), authMiddleWare.verifyAdminOrStaff, bookingController.confirmBooking);
 
 // ── POST /booking/cancel/:id ──
 router.post('/booking/cancel/:id', runValidation([
     ...validateBookingCancel,
-]), authMiddleWare.verifyAdmin, bookingController.cancelBooking);
+]), authMiddleWare.verifyAdminOrStaff, bookingController.cancelBooking);
 
 // ── POST /booking/complete/:id ──
 router.post('/booking/complete/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), authMiddleWare.verifyAdmin, bookingController.completeBooking);
+]), authMiddleWare.verifyAdminOrStaff, bookingController.completeBooking);
+
+// ── POST /booking/payment-request/:id ──
+router.post('/booking/payment-request/:id', runValidation([
+    param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
+]), authMiddleWare.verifyAdminOrStaff, bookingController.createPaymentRequest);
+
+// ── GET /booking/payment-info/:bookingCode (Public) ──
+router.get('/booking/payment-info/:bookingCode', runValidation([
+    param('bookingCode').trim().notEmpty().withMessage('bookingCode là bắt buộc'),
+]), bookingController.getPaymentInfoByBookingCode);
 
 // ── GET /bookings ──
-router.get('/bookings', runValidation(validateBookingListQuery), authMiddleWare.verifyAdmin, bookingController.getAllBookings);
+router.get('/bookings', runValidation(validateBookingListQuery), authMiddleWare.verifyAdminOrStaff, bookingController.getAllBookings);
 
 // ── GET /bookings/:id ──
 router.get('/bookings/:id', runValidation([
     param('id').isMongoId().withMessage('Booking ID không hợp lệ'),
-]), authMiddleWare.verifyAdmin, bookingController.getBookingById);
+]), authMiddleWare.verifyAdminOrStaff, bookingController.getBookingById);
 
 module.exports = router;

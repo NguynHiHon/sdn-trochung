@@ -37,15 +37,57 @@ import {
   adminDeleteFaqItem,
 } from "../../services/faqApi";
 import RichTextEditor from "../../components/common/RichTextEditor";
+import MediaPicker from "../../components/common/MediaPicker";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import { isRichTextEmpty } from "../../utils/youtubeEmbed";
 
-const emptyCat = { slug: "", title: { vi: "", en: "" }, sortOrder: 0 };
+const emptyCat = {
+  slug: "",
+  title: { vi: "", en: "" },
+  subtitle: { vi: "", en: "" },
+  heroImage: "",
+  sortOrder: 0,
+  anchorAliasesText: "",
+};
+
+function parseFaqAnchorAliasesField(text, primarySlug) {
+  const p = String(primarySlug || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll(/\s+/g, "-");
+  const parts = String(text || "")
+    .split(/[,;\n]+/)
+    .map((s) =>
+      s
+        .trim()
+        .toLowerCase()
+        .replaceAll(/\s+/g, "-")
+        .replace(/^#/, ""),
+    )
+    .filter(Boolean);
+  return [...new Set(parts)].filter((a) => a !== p);
+}
 const emptyItem = {
   categoryId: "",
+  groupTitle: { vi: "", en: "" },
   question: { vi: "", en: "" },
   answer: { vi: "", en: "" },
+  youtubeUrl: "",
   sortOrder: 0,
 };
+
+/** Tiêu đề accordion: lấy từ chữ thuần đầu tiên của HTML trả lời (không còn ô câu hỏi riêng). */
+function deriveFaqQuestionTitle(html, lang) {
+  const raw = String(html || "")
+    .replaceAll(/<script\b[\s\S]*?<\/script>/gi, "")
+    .replaceAll(/<style\b[\s\S]*?<\/style>/gi, "")
+    .replaceAll(/<[^>]+>/g, " ")
+    .replaceAll(/&nbsp;|&#160;/gi, " ")
+    .replaceAll(/\s+/g, " ")
+    .trim();
+  if (raw) return raw.length > 200 ? `${raw.slice(0, 197)}…` : raw;
+  return lang === "en" ? "Content" : "Nội dung";
+}
 
 export default function FaqManagerPage({ embedded }) {
   const [tab, setTab] = useState(0);
@@ -61,16 +103,27 @@ export default function FaqManagerPage({ embedded }) {
   const [itemForm, setItemForm] = useState(emptyItem);
   const [itemEditId, setItemEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [catMediaPickerOpen, setCatMediaPickerOpen] = useState(false);
+  /** URL xem trước ảnh đầu mục sau khi chọn từ MediaPicker (nhóm mới chưa có trong bảng) */
+  const [catHeroPreviewUrl, setCatHeroPreviewUrl] = useState("");
 
   const loadCats = () =>
-    adminListFaqCategories().then((res) => {
-      if (res.success) setCategories(res.data || []);
-    });
+    adminListFaqCategories()
+      .then((res) => {
+        if (res.success) setCategories(res.data || []);
+      })
+      .catch((e) => {
+        toast.error(e.response?.data?.message || e.message || "Không tải được nhóm FAQ");
+      });
   const loadItems = () => {
     const params = itemFilter === "all" ? {} : { categoryId: itemFilter };
-    return adminListFaqItems(params).then((res) => {
-      if (res.success) setItems(res.data || []);
-    });
+    return adminListFaqItems(params)
+      .then((res) => {
+        if (res.success) setItems(res.data || []);
+      })
+      .catch((e) => {
+        toast.error(e.response?.data?.message || e.message || "Không tải được câu hỏi FAQ");
+      });
   };
 
   const refresh = async () => {
@@ -101,7 +154,23 @@ export default function FaqManagerPage({ embedded }) {
     }
     setSaving(true);
     try {
-      const p = { ...catForm, sortOrder: Number(catForm.sortOrder) || 0 };
+      const heroRaw = catForm.heroImage;
+      let heroId = null;
+      if (heroRaw && heroRaw !== "") {
+        heroId = typeof heroRaw === "object" && heroRaw?._id ? heroRaw._id : heroRaw;
+      }
+      const p = {
+        slug: catForm.slug.trim().toLowerCase(),
+        title: catForm.title,
+        bannerHeadline: { vi: "", en: "" },
+        subtitle: catForm.subtitle || { vi: "", en: "" },
+        sortOrder: Number(catForm.sortOrder) || 0,
+        heroImage: heroId,
+        anchorAliases: parseFaqAnchorAliasesField(
+          catForm.anchorAliasesText,
+          catForm.slug,
+        ),
+      };
       if (catEditId) await adminUpdateFaqCategory(catEditId, p);
       else await adminCreateFaqCategory(p);
       toast.success("Đã lưu");
@@ -117,19 +186,26 @@ export default function FaqManagerPage({ embedded }) {
   const saveItem = async () => {
     if (
       !itemForm.categoryId ||
-      !itemForm.question.vi.trim() ||
-      !itemForm.question.en.trim() ||
       isRichTextEmpty(itemForm.answer.vi) ||
       isRichTextEmpty(itemForm.answer.en)
     ) {
-      toast.warning("Điền đủ nhóm và Q&A (VI/EN)");
+      toast.warning("Chọn trang FAQ và điền đủ nội dung trả lời (VI/EN)");
       return;
     }
     setSaving(true);
     try {
       const p = {
         ...itemForm,
+        question: {
+          vi: deriveFaqQuestionTitle(itemForm.answer.vi, "vi"),
+          en: deriveFaqQuestionTitle(itemForm.answer.en, "en"),
+        },
+        groupTitle: {
+          vi: (itemForm.groupTitle?.vi || "").trim(),
+          en: (itemForm.groupTitle?.en || "").trim(),
+        },
         sortOrder: Number(itemForm.sortOrder) || 0,
+        youtubeUrl: "",
       };
       if (itemEditId) await adminUpdateFaqItem(itemEditId, p);
       else await adminCreateFaqItem(p);
@@ -161,8 +237,8 @@ export default function FaqManagerPage({ embedded }) {
         </Typography>
       )}
       <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Nhóm câu hỏi" />
-        <Tab label="Câu hỏi & trả lời" />
+        <Tab label="Trang FAQ" />
+        <Tab label="Đầu mục & câu hỏi" />
       </Tabs>
 
       {tab === 0 && (
@@ -173,11 +249,12 @@ export default function FaqManagerPage({ embedded }) {
             sx={{ mb: 2 }}
             onClick={() => {
               setCatEditId(null);
-              setCatForm(emptyCat);
+              setCatForm({ ...emptyCat });
+              setCatHeroPreviewUrl("");
               setCatDialog(true);
             }}
           >
-            Thêm nhóm
+            Thêm trang / mục FAQ
           </Button>
           {loading ? (
             <CircularProgress />
@@ -188,6 +265,9 @@ export default function FaqManagerPage({ embedded }) {
                   <TableRow>
                     <TableCell>
                       <strong>Slug</strong>
+                    </TableCell>
+                    <TableCell>
+                      <strong>Ảnh đầu mục</strong>
                     </TableCell>
                     <TableCell>
                       <strong>Tiêu đề VI</strong>
@@ -207,6 +287,24 @@ export default function FaqManagerPage({ embedded }) {
                   {categories.map((c) => (
                     <TableRow key={c._id}>
                       <TableCell>{c.slug}</TableCell>
+                      <TableCell sx={{ width: 88 }}>
+                        {c.heroImage?.url ? (
+                          <Box
+                            component="img"
+                            src={c.heroImage.url}
+                            alt=""
+                            sx={{
+                              width: 72,
+                              height: 48,
+                              objectFit: "cover",
+                              borderRadius: 1,
+                              border: "1px solid #e2e8f0",
+                            }}
+                          />
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
                       <TableCell>{c.title?.vi}</TableCell>
                       <TableCell>{c.title?.en}</TableCell>
                       <TableCell>{c.sortOrder}</TableCell>
@@ -221,8 +319,15 @@ export default function FaqManagerPage({ embedded }) {
                                 vi: c.title?.vi || "",
                                 en: c.title?.en || "",
                               },
+                              subtitle: {
+                                vi: c.subtitle?.vi || "",
+                                en: c.subtitle?.en || "",
+                              },
+                              heroImage: c.heroImage?._id || c.heroImage || "",
                               sortOrder: c.sortOrder ?? 0,
+                              anchorAliasesText: (c.anchorAliases || []).join(", "),
                             });
+                            setCatHeroPreviewUrl("");
                             setCatDialog(true);
                           }}
                         >
@@ -232,7 +337,7 @@ export default function FaqManagerPage({ embedded }) {
                           size="small"
                           onClick={async () => {
                             if (
-                              !window.confirm(
+                              !globalThis.confirm(
                                 "Xóa nhóm và toàn bộ câu hỏi trong nhóm?",
                               )
                             )
@@ -304,6 +409,9 @@ export default function FaqManagerPage({ embedded }) {
                     <strong>Nhóm</strong>
                   </TableCell>
                   <TableCell>
+                    <strong>Đầu mục con</strong>
+                  </TableCell>
+                  <TableCell>
                     <strong>Câu hỏi (VI)</strong>
                   </TableCell>
                   <TableCell>
@@ -317,7 +425,7 @@ export default function FaqManagerPage({ embedded }) {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={5} align="center">
                       Chưa có câu hỏi
                     </TableCell>
                   </TableRow>
@@ -325,6 +433,7 @@ export default function FaqManagerPage({ embedded }) {
                   items.map((it) => (
                     <TableRow key={it._id}>
                       <TableCell>{it.categoryId?.title?.vi || "—"}</TableCell>
+                      <TableCell>{it.groupTitle?.vi || "—"}</TableCell>
                       <TableCell>{it.question?.vi}</TableCell>
                       <TableCell>{it.sortOrder}</TableCell>
                       <TableCell align="right">
@@ -342,6 +451,11 @@ export default function FaqManagerPage({ embedded }) {
                                 vi: it.answer?.vi || "",
                                 en: it.answer?.en || "",
                               },
+                              groupTitle: {
+                                vi: it.groupTitle?.vi || "",
+                                en: it.groupTitle?.en || "",
+                              },
+                              youtubeUrl: "",
                               sortOrder: it.sortOrder ?? 0,
                             });
                             setItemDialog(true);
@@ -352,7 +466,7 @@ export default function FaqManagerPage({ embedded }) {
                         <IconButton
                           size="small"
                           onClick={async () => {
-                            if (!window.confirm("Xóa?")) return;
+                            if (!globalThis.confirm("Xóa?")) return;
                             try {
                               await adminDeleteFaqItem(it._id);
                               toast.success("Đã xóa");
@@ -376,30 +490,46 @@ export default function FaqManagerPage({ embedded }) {
 
       <Dialog
         open={catDialog}
-        onClose={() => setCatDialog(false)}
-        maxWidth="sm"
+        onClose={() => {
+          setCatDialog(false);
+          setCatHeroPreviewUrl("");
+        }}
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>{catEditId ? "Sửa nhóm FAQ" : "Nhóm mới"}</DialogTitle>
+        <DialogTitle>
+          {catEditId ? "Sửa trang FAQ (cấp 1.)" : "Trang FAQ mới (cấp 1.)"}
+        </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             margin="normal"
-            label="Slug"
+            label="Slug (URL #...)"
             value={catForm.slug}
             onChange={(e) =>
               setCatForm({
                 ...catForm,
-                slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
+                slug: e.target.value.toLowerCase().replaceAll(/\s+/g, "-"),
               })
             }
-            disabled={!!catEditId}
+            helperText="Đổi slug sẽ đổi anchor #... trên trang /faqs"
+          />
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Hash # bổ sung (alias)"
+            value={catForm.anchorAliasesText || ""}
+            onChange={(e) =>
+              setCatForm({ ...catForm, anchorAliasesText: e.target.value })
+            }
+            placeholder="thac-mac-sondoong, faq-sondong"
+            helperText="Nhiều hash cách nhau bằng dấu phẩy; cùng cuộn tới khối nội dung của slug chính (vd: link cũ Oxalis)"
           />
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Tiêu đề VI"
+                label="Tiêu đề trang (VI) — hiển thị 1. …"
                 value={catForm.title.vi}
                 onChange={(e) =>
                   setCatForm({
@@ -412,7 +542,7 @@ export default function FaqManagerPage({ embedded }) {
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Title EN"
+                label="Page title (EN) — shown as 1. …"
                 value={catForm.title.en}
                 onChange={(e) =>
                   setCatForm({
@@ -423,6 +553,81 @@ export default function FaqManagerPage({ embedded }) {
               />
             </Grid>
           </Grid>
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Đoạn chữ trên banner (VI)"
+                value={catForm.subtitle.vi}
+                onChange={(e) =>
+                  setCatForm({
+                    ...catForm,
+                    subtitle: { ...catForm.subtitle, vi: e.target.value },
+                  })
+                }
+                helperText="Đoạn màu trắng trên ảnh banner /faqs (mục thứ tự nhỏ nhất)"
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Banner paragraph (EN)"
+                value={catForm.subtitle.en}
+                onChange={(e) =>
+                  setCatForm({
+                    ...catForm,
+                    subtitle: { ...catForm.subtitle, en: e.target.value },
+                  })
+                }
+              />
+            </Grid>
+          </Grid>
+          <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
+            <Button
+              variant="outlined"
+              startIcon={<PhotoLibraryIcon />}
+              onClick={() => setCatMediaPickerOpen(true)}
+            >
+              {catForm.heroImage ? "Đổi ảnh banner" : "Chọn ảnh banner (trang đầu /faqs)"}
+            </Button>
+            {catForm.heroImage ? (
+              <Button
+                size="small"
+                color="error"
+                onClick={() => {
+                  setCatForm({ ...catForm, heroImage: "" });
+                  setCatHeroPreviewUrl("");
+                }}
+              >
+                Gỡ ảnh
+              </Button>
+            ) : null}
+          </Box>
+          {(() => {
+            const fromRow =
+              catEditId &&
+              categories.find((c) => c._id === catEditId)?.heroImage?.url;
+            const preview = catHeroPreviewUrl || fromRow || "";
+            return preview ? (
+              <Box
+                component="img"
+                src={preview}
+                alt=""
+                sx={{
+                  mt: 1,
+                  width: "100%",
+                  maxHeight: 200,
+                  objectFit: "cover",
+                  borderRadius: 1,
+                  border: "1px solid #e2e8f0",
+                }}
+              />
+            ) : null;
+          })()}
           <TextField
             fullWidth
             margin="normal"
@@ -432,30 +637,54 @@ export default function FaqManagerPage({ embedded }) {
             onChange={(e) =>
               setCatForm({ ...catForm, sortOrder: e.target.value })
             }
+            helperText="Số nhỏ nhất = hiển thị trước; mục đó quyết định ảnh & intro trên banner"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCatDialog(false)}>Hủy</Button>
+          <Button
+            onClick={() => {
+              setCatDialog(false);
+              setCatHeroPreviewUrl("");
+            }}
+          >
+            Hủy
+          </Button>
           <Button variant="contained" onClick={saveCat} disabled={saving}>
             Lưu
           </Button>
         </DialogActions>
       </Dialog>
 
+      {catMediaPickerOpen ? (
+        <MediaPicker
+          open={catMediaPickerOpen}
+          multiple={false}
+          nested
+          defaultSelected={catForm.heroImage}
+          onSelect={(id, item) => {
+            setCatForm((prev) => ({ ...prev, heroImage: id || "" }));
+            setCatHeroPreviewUrl(item?.url || "");
+          }}
+          onClose={() => setCatMediaPickerOpen(false)}
+        />
+      ) : null}
+
       <Dialog
         open={itemDialog}
         onClose={() => setItemDialog(false)}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { overflow: "visible" } }}
+        scroll="paper"
+        disableEnforceFocus
+        PaperProps={{ sx: { maxHeight: "88vh" } }}
       >
-        <DialogTitle>{itemEditId ? "Sửa câu hỏi" : "Câu hỏi mới"}</DialogTitle>
-        <DialogContent sx={{ overflow: "visible" }}>
+        <DialogTitle>{itemEditId ? "Sửa câu hỏi" : "Thêm câu hỏi"}</DialogTitle>
+        <DialogContent dividers sx={{ overflowY: "auto" }}>
           <TextField
             fullWidth
             margin="normal"
             select
-            label="Nhóm"
+            label="Thuộc trang FAQ"
             value={itemForm.categoryId}
             onChange={(e) =>
               setItemForm({ ...itemForm, categoryId: e.target.value })
@@ -470,24 +699,25 @@ export default function FaqManagerPage({ embedded }) {
           <TextField
             fullWidth
             margin="normal"
-            label="Câu hỏi (VI)"
-            value={itemForm.question.vi}
+            label="Đầu mục con (VI)"
+            value={itemForm.groupTitle?.vi || ""}
             onChange={(e) =>
               setItemForm({
                 ...itemForm,
-                question: { ...itemForm.question, vi: e.target.value },
+                groupTitle: { ...itemForm.groupTitle, vi: e.target.value },
               })
             }
+            helperText="Cùng tên để gom nhóm; để trống = mục “Khác”"
           />
           <TextField
             fullWidth
             margin="normal"
-            label="Question (EN)"
-            value={itemForm.question.en}
+            label="Đầu mục con (EN)"
+            value={itemForm.groupTitle?.en || ""}
             onChange={(e) =>
               setItemForm({
                 ...itemForm,
-                question: { ...itemForm.question, en: e.target.value },
+                groupTitle: { ...itemForm.groupTitle, en: e.target.value },
               })
             }
           />
@@ -500,7 +730,7 @@ export default function FaqManagerPage({ embedded }) {
                 answer: { ...itemForm.answer, vi: v },
               })
             }
-            placeholder="Nội dung trả lời... (có thể chèn ảnh/video YouTube bằng toolbar)"
+            placeholder="Nội dung… (chữ thuần đầu tiên dùng làm dòng tiêu đề trên trang FAQ)"
             minHeight={200}
           />
           <RichTextEditor
@@ -512,7 +742,7 @@ export default function FaqManagerPage({ embedded }) {
                 answer: { ...itemForm.answer, en: v },
               })
             }
-            placeholder="Answer... (image/YouTube video embed is supported)"
+            placeholder="Content… (first plain text becomes the FAQ row title)"
             minHeight={200}
           />
           <TextField
@@ -524,6 +754,7 @@ export default function FaqManagerPage({ embedded }) {
             onChange={(e) =>
               setItemForm({ ...itemForm, sortOrder: e.target.value })
             }
+            helperText="Cùng trang và cùng đầu mục con: số nhỏ hơn hiển thị trước"
           />
         </DialogContent>
         <DialogActions>

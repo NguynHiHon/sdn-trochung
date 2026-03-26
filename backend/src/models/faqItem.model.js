@@ -9,6 +9,8 @@ const bilingual = {
 const faqItemSchema = new Schema(
   {
     categoryId: { type: Schema.Types.ObjectId, ref: 'FaqCategory', required: true, index: true },
+    /** Đầu mục con của section (vd: Caving & Camping -> hiển thị thành 1.1) */
+    groupTitle: { type: bilingual, default: { vi: '', en: '' } },
     question: { type: bilingual, required: true },
     answer: { type: bilingual, required: true },
     /** Link YouTube tuỳ chọn — hiển thị dưới nội dung trả lời */

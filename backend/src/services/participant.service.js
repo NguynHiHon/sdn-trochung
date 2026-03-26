@@ -1,5 +1,6 @@
 const Participant = require('../models/participant.model');
 const Booking = require('../models/booking.model');
+const certificateService = require('./certificate.service');
 
 const getParticipantsByBookingId = async (bookingId) => {
   return await Participant.find({ bookingId });
@@ -15,7 +16,15 @@ const createParticipant = async (data) => {
 };
 
 const updateParticipantById = async (id, updateData) => {
-  return await Participant.findByIdAndUpdate(id, updateData, { new: true });
+  const updated = await Participant.findByIdAndUpdate(id, updateData, { new: true });
+  if (updated && updateData.status === 'completed') {
+    try {
+      await certificateService.createCertificate(updated);
+    } catch (err) {
+      console.error('Certificate creation failed:', err.message);
+    }
+  }
+  return updated;
 };
 
 const updateParticipantReviewStatus = async (id, reviewStatus) => {

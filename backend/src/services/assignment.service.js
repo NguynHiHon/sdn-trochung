@@ -44,7 +44,7 @@ const getAssignments = async ({ staffId, status, page = 1, limit = 20 }) => {
         BookingAssignment.find(filter)
             .populate({
                 path: 'bookingId',
-                select: 'bookingCode totalGuests totalPrice contactInfo status tourId scheduleId',
+                select: 'bookingCode totalGuests totalPrice contactInfo status paymentRequest tourId scheduleId',
                 populate: [
                     { path: 'tourId', select: 'name code' },
                     { path: 'scheduleId', select: 'startDate endDate' },
@@ -62,10 +62,6 @@ const getAssignments = async ({ staffId, status, page = 1, limit = 20 }) => {
 };
 
 const updateAssignmentStatus = async (assignmentId, status, userId) => {
-    if (!['in_progress', 'cancelled'].includes(status)) {
-        throw new Error('Nhân viên chỉ có thể Tiếp nhận hoặc Từ chối yêu cầu tư vấn');
-    }
-
     const assignment = await BookingAssignment.findById(assignmentId);
     if (!assignment) throw new Error('Assignment not found');
 
@@ -74,13 +70,27 @@ const updateAssignmentStatus = async (assignmentId, status, userId) => {
         throw new Error('Bạn không có quyền thao tác assignment này');
     }
 
-    // Chỉ xử lý ở trạng thái chờ
-    if (assignment.status !== 'pending') {
+    const canTransitionFromPending = ['in_progress', 'cancelled'];
+    const canTransitionFromInProgress = ['completed'];
+
+    if (assignment.status === 'pending' && !canTransitionFromPending.includes(status)) {
+        throw new Error('Nhiệm vụ đang chờ chỉ có thể Tiếp nhận hoặc Từ chối');
+    }
+
+    if (assignment.status === 'in_progress' && !canTransitionFromInProgress.includes(status)) {
+        throw new Error('Nhiệm vụ đang tư vấn chỉ có thể chuyển sang Hoàn thành');
+    }
+
+    if (!['pending', 'in_progress'].includes(assignment.status)) {
         throw new Error('Assignment này đã được xử lý trước đó');
     }
 
     const staff = await User.findById(userId).select('fullName username');
     const booking = await Booking.findById(assignment.bookingId).populate('tourId', 'name code');
+
+    if (status === 'completed' && !['CONFIRMED', 'CANCELLED'].includes(booking?.status)) {
+        throw new Error('Chỉ có thể hoàn thành tư vấn sau khi booking đã phê duyệt hoặc hủy');
+    }
 
     if (status === 'cancelled') {
         // Từ chối: gỡ staff khỏi booking bằng cách xóa assignment
@@ -107,18 +117,30 @@ const updateAssignmentStatus = async (assignmentId, status, userId) => {
     assignment.status = status;
     await assignment.save();
 
-    await notificationService.notifyAllAdmins({
-        type: 'assignment',
-        title: 'Nhân viên đã tiếp nhận tư vấn',
-        content: `${staff?.fullName || staff?.username || 'Nhân viên'} đã tiếp nhận booking ${booking?.bookingCode || 'N/A'}.`,
-        relatedId: assignment._id,
-        relatedModel: 'BookingAssignment',
-    });
+    if (status === 'in_progress') {
+        await notificationService.notifyAllAdmins({
+            type: 'assignment',
+            title: 'Nhân viên đã tiếp nhận tư vấn',
+            content: `${staff?.fullName || staff?.username || 'Nhân viên'} đã tiếp nhận booking ${booking?.bookingCode || 'N/A'}.`,
+            relatedId: assignment._id,
+            relatedModel: 'BookingAssignment',
+        });
+    }
+
+    if (status === 'completed') {
+        await notificationService.notifyAllAdmins({
+            type: 'assignment',
+            title: 'Nhân viên hoàn tất tư vấn',
+            content: `${staff?.fullName || staff?.username || 'Nhân viên'} đã hoàn tất tư vấn booking ${booking?.bookingCode || 'N/A'}.`,
+            relatedId: assignment._id,
+            relatedModel: 'BookingAssignment',
+        });
+    }
 
     return await BookingAssignment.findById(assignmentId)
         .populate({
             path: 'bookingId',
-            select: 'bookingCode totalGuests totalPrice contactInfo status tourId scheduleId',
+            select: 'bookingCode totalGuests totalPrice contactInfo status paymentRequest tourId scheduleId',
             populate: [
                 { path: 'tourId', select: 'name code' },
                 { path: 'scheduleId', select: 'startDate endDate' },

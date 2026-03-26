@@ -13,4 +13,4 @@ export const updateParticipant = async (participantId, data) => {
 export const updateParticipantReviewStatus = async (participantId, reviewStatus) => {
   const response = await axiosJWT.patch(`/api/participants/${participantId}/review-status`, { reviewStatus });
   return response.data;
-};
+}

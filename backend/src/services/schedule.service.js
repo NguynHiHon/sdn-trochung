@@ -1,5 +1,6 @@
 const Schedule = require('../models/schedule.model');
 const Tour = require('../models/tour.model');
+const Booking = require('../models/booking.model');
 
 const getAllSchedules = async ({ tourId, status, hidden = 'all', month, year, tourGuideId, page = 1, limit = 20 }) => {
   const filter = {};
@@ -123,6 +124,154 @@ const updateScheduleById = async (id, updateData) => {
   }
 };
 
+const completeSchedule = async (id, actorUser) => {
+  const schedule = await Schedule.findById(id);
+  if (!schedule) return null;
+
+  const role = actorUser?.role;
+  if (!role) {
+    throw new Error('Không xác định người thực hiện');
+  }
+
+  // Staff can only complete schedules assigned to them.
+  if (role === 'staff') {
+    if (!schedule.tourGuideId) {
+      throw new Error('Lịch này chưa được gán trưởng đoàn');
+    }
+    if (String(schedule.tourGuideId) !== String(actorUser._id)) {
+      throw new Error('Bạn không có quyền hoàn thành lịch khởi hành này');
+    }
+  } else if (role !== 'admin') {
+    throw new Error('Không có quyền thực hiện thao tác này');
+  }
+
+  if (schedule.status === 'Cancelled') {
+    throw new Error('Không thể hoàn thành lịch đã hủy');
+  }
+  if (schedule.status === 'Completed') {
+    return schedule;
+  }
+
+  if (schedule.status !== 'Started') {
+    throw new Error('Vui lòng chuyển trạng thái Khởi hành trước khi hoàn thành');
+  }
+
+  const now = new Date();
+  if (schedule.endDate && schedule.endDate > now) {
+    throw new Error('Chỉ có thể hoàn thành sau khi tour kết thúc');
+  }
+
+  schedule.status = 'Completed';
+  const saved = await schedule.save();
+
+  // When the tour is completed, mark all bookings in this schedule as COMPLETED (except cancelled)
+  await Booking.updateMany(
+    { scheduleId: schedule._id, status: { $ne: 'CANCELLED' } },
+    { $set: { status: 'COMPLETED' } },
+  );
+
+  return saved;
+};
+
+const startSchedule = async (id, actorUser) => {
+  const schedule = await Schedule.findById(id);
+  if (!schedule) return null;
+
+  const role = actorUser?.role;
+  if (!role) {
+    throw new Error('Không xác định người thực hiện');
+  }
+
+  // Staff can only start schedules assigned to them.
+  if (role === 'staff') {
+    if (!schedule.tourGuideId) {
+      throw new Error('Lịch này chưa được gán trưởng đoàn');
+    }
+    if (String(schedule.tourGuideId) !== String(actorUser._id)) {
+      throw new Error('Bạn không có quyền khởi hành lịch khởi hành này');
+    }
+  } else if (role !== 'admin') {
+    throw new Error('Không có quyền thực hiện thao tác này');
+  }
+
+  if (schedule.status === 'Cancelled') {
+    throw new Error('Không thể khởi hành lịch đã hủy');
+  }
+  if (schedule.status === 'Completed') {
+    throw new Error('Lịch đã hoàn thành');
+  }
+  if (schedule.status === 'Started') {
+    return schedule;
+  }
+
+  const now = new Date();
+  if (schedule.startDate && schedule.startDate > now) {
+    throw new Error('Chỉ có thể khởi hành khi đến ngày khởi hành');
+  }
+
+  // Auto-cancel HOLD bookings (still pending) when tour starts
+  const holdBookings = await Booking.find({ scheduleId: schedule._id, status: 'HOLD' }).select('_id totalGuests');
+  if (holdBookings.length > 0) {
+    const holdGuests = holdBookings.reduce((sum, b) => sum + (Number(b.totalGuests) || 0), 0);
+    if (holdGuests > 0) {
+      schedule.bookedSlots = Math.max(0, Number(schedule.bookedSlots || 0) - holdGuests);
+    }
+    await Booking.updateMany(
+      { _id: { $in: holdBookings.map((b) => b._id) } },
+      { $set: { status: 'CANCELLED', cancelReason: 'Tự động hủy do tour đã khởi hành' } },
+    );
+  }
+
+  // Move CONFIRMED bookings to DEPARTED so they can no longer be cancelled/refunded
+  await Booking.updateMany(
+    { scheduleId: schedule._id, status: 'CONFIRMED' },
+    { $set: { status: 'DEPARTED' } },
+  );
+
+  schedule.status = 'Started';
+  return await schedule.save();
+};
+
+const cancelSchedule = async (id, actorUser) => {
+  const schedule = await Schedule.findById(id);
+  if (!schedule) return null;
+
+  const role = actorUser?.role;
+  if (!role) {
+    throw new Error('Không xác định người thực hiện');
+  }
+
+  if (role === 'staff') {
+    if (!schedule.tourGuideId) {
+      throw new Error('Lịch này chưa được gán trưởng đoàn');
+    }
+    if (String(schedule.tourGuideId) !== String(actorUser._id)) {
+      throw new Error('Bạn không có quyền hủy lịch khởi hành này');
+    }
+  } else if (role !== 'admin') {
+    throw new Error('Không có quyền thực hiện thao tác này');
+  }
+
+  if (schedule.status === 'Cancelled') {
+    return schedule;
+  }
+  if (schedule.status === 'Completed') {
+    throw new Error('Không thể hủy lịch đã hoàn thành');
+  }
+
+  schedule.status = 'Cancelled';
+  schedule.bookedSlots = 0;
+  const saved = await schedule.save();
+
+  // Cancel all non-cancelled/non-completed bookings linked to this schedule
+  await Booking.updateMany(
+    { scheduleId: schedule._id, status: { $nin: ['CANCELLED', 'COMPLETED'] } },
+    { $set: { status: 'CANCELLED', cancelReason: 'Lịch khởi hành đã bị hủy' } },
+  );
+
+  return saved;
+};
+
 const deleteScheduleById = async (id) => {
   // Prevent deletion if there are booked slots?
   const schedule = await Schedule.findById(id);
@@ -138,5 +287,8 @@ module.exports = {
   createSchedule,
   bulkCreateSchedules,
   updateScheduleById,
+  startSchedule,
+  completeSchedule,
+  cancelSchedule,
   deleteScheduleById
 };

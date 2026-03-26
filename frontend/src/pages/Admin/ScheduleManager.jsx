@@ -16,7 +16,7 @@ import { getAllSchedules, deleteSchedule, bulkCreateSchedules, updateSchedule } 
 import { getAllTours } from '../../services/tourApi';
 import { getStaffList } from '../../services/userApi';
 
-const statusColor = { Available: 'success', Full: 'error', Cancelled: 'default', Completed: 'info' };
+const statusColor = { Available: 'success', Full: 'error', Started: 'warning', Cancelled: 'default', Completed: 'info' };
 
 export default function ScheduleManager() {
     const [schedules, setSchedules] = useState([]);
@@ -217,6 +217,7 @@ export default function ScheduleManager() {
                     <MenuItem value="all">Tất cả</MenuItem>
                     <MenuItem value="Available">Mở bán</MenuItem>
                     <MenuItem value="Full">Hết chỗ</MenuItem>
+                    <MenuItem value="Started">Khởi hành</MenuItem>
                     <MenuItem value="Cancelled">Đã hủy</MenuItem>
                     <MenuItem value="Completed">Hoàn thành</MenuItem>
                 </TextField>
@@ -391,6 +392,7 @@ export default function ScheduleManager() {
                         >
                             <MenuItem value="Available">Mở bán</MenuItem>
                             <MenuItem value="Full">Hết chỗ</MenuItem>
+                            <MenuItem value="Started">Khởi hành</MenuItem>
                             <MenuItem value="Cancelled">Đã hủy</MenuItem>
                             <MenuItem value="Completed">Hoàn thành</MenuItem>
                         </TextField>

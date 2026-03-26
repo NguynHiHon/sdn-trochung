@@ -30,7 +30,7 @@ const scheduleSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ['Available', 'Full', 'Cancelled', 'Completed'],
+            enum: ['Available', 'Full', 'Started', 'Cancelled', 'Completed'],
             default: 'Available',
             index: true,
         },

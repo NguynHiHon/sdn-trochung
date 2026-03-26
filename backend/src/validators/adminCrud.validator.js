@@ -139,7 +139,7 @@ const validateScheduleCreate = [
     body('endDate').notEmpty().withMessage('endDate là bắt buộc').isISO8601().withMessage('endDate không đúng định dạng ngày'),
     body('capacity').notEmpty().withMessage('capacity là bắt buộc').isInt({ min: 1, max: 1000 }).withMessage('capacity phải từ 1 đến 1000'),
     body('bookedSlots').optional().isInt({ min: 0 }).withMessage('bookedSlots phải >= 0'),
-    body('status').optional().isIn(['Available', 'Full', 'Cancelled', 'Completed']).withMessage('status lịch khởi hành không hợp lệ'),
+    body('status').optional().isIn(['Available', 'Full', 'Started', 'Cancelled', 'Completed']).withMessage('status lịch khởi hành không hợp lệ'),
     body('tourGuideId').optional({ nullable: true }).custom(isMongoIdOrEmpty).withMessage('tourGuideId không hợp lệ'),
     body().custom((data) => {
         if (new Date(data.endDate) < new Date(data.startDate)) {
@@ -159,7 +159,7 @@ const validateScheduleUpdate = [
     body('endDate').not().exists().withMessage('Không cho phép sửa endDate. Hãy tạo lịch mới nếu cần đổi ngày'),
     body('capacity').optional().isInt({ min: 1, max: 1000 }).withMessage('capacity phải từ 1 đến 1000'),
     body('bookedSlots').optional().isInt({ min: 0 }).withMessage('bookedSlots phải >= 0'),
-    body('status').optional().isIn(['Available', 'Full', 'Cancelled', 'Completed']).withMessage('status lịch khởi hành không hợp lệ'),
+    body('status').optional().isIn(['Available', 'Full', 'Started', 'Cancelled', 'Completed']).withMessage('status lịch khởi hành không hợp lệ'),
     body('isHidden').optional().isBoolean().withMessage('isHidden phải là true hoặc false'),
     body('tourGuideId').optional({ nullable: true }).custom(isMongoIdOrEmpty).withMessage('tourGuideId không hợp lệ'),
     body().custom((data) => {
@@ -204,7 +204,7 @@ const validateBookingCancel = [
 ];
 
 const validateBookingListQuery = [
-    query('status').optional().isIn(['all', 'HOLD', 'CONFIRMED', 'CANCELLED', 'COMPLETED']).withMessage('Trạng thái booking filter không hợp lệ'),
+    query('status').optional().isIn(['all', 'HOLD', 'CONFIRMED', 'DEPARTED', 'CANCELLED', 'COMPLETED']).withMessage('Trạng thái booking filter không hợp lệ'),
     query('assignmentStatus').optional().isIn(['all', 'unassigned', 'pending', 'in_progress', 'completed', 'cancelled']).withMessage('Trạng thái tư vấn filter không hợp lệ'),
     query('participantReviewStatus').optional().isIn(['all', 'pending_review', 'approved', 'rejected', 'completed', 'service_suspended']).withMessage('Trạng thái hành khách filter không hợp lệ'),
     query('page').optional().isInt({ min: 1 }).withMessage('page phải >= 1'),

@@ -32,6 +32,31 @@ const defaultFormats = [
   "video",
 ];
 
+function getQuillInstance(quillRef) {
+  const inst = quillRef?.current;
+  if (!inst) return null;
+  if (typeof inst.getEditor === "function") {
+    try {
+      return inst.getEditor();
+    } catch {
+      return null;
+    }
+  }
+  if (inst.editor) return inst.editor;
+  return null;
+}
+
+async function waitForQuill(quillRef, attempts = 8) {
+  for (let i = 0; i < attempts; i += 1) {
+    const q = getQuillInstance(quillRef);
+    if (q) return q;
+    await new Promise((r) => {
+      globalThis.requestAnimationFrame(r);
+    });
+  }
+  return getQuillInstance(quillRef);
+}
+
 /**
  * Rich text (react-quill-new) — dùng cho nội dung bài viết / FAQ.
  */
@@ -43,20 +68,27 @@ export default function RichTextEditor({
   minHeight = 280,
   modules,
   formats,
+  /** Folder Cloudinary khi bấm nút ảnh trên toolbar */
+  uploadFolder = "oxalis_other",
 }) {
   const quillRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
-  const handleImageSelectAndUpload = useCallback(async () => {
-    const input = document.createElement("input");
-    input.setAttribute("type", "file");
-    input.setAttribute(
-      "accept",
-      "image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/*",
-    );
+  const openFilePicker = useCallback(() => {
+    const input = fileInputRef.current;
+    if (!input) {
+      toast.error("Không mở được hộp chọn ảnh.");
+      return;
+    }
+    input.value = "";
     input.click();
+  }, []);
 
-    input.onchange = async () => {
-      const file = input.files?.[0];
+  const handleHiddenFileChange = useCallback(
+    async (e) => {
+      const file = e.target.files?.[0];
       if (!file) return;
       if (!file.type?.startsWith("image/")) {
         toast.error("Vui lòng chọn file ảnh hợp lệ.");
@@ -65,29 +97,42 @@ export default function RichTextEditor({
 
       try {
         toast.info("Đang tải ảnh lên...");
-        const uploaded = await uploadFileToCloudinarySigned(file, "oxalis_other");
+        const uploaded = await uploadFileToCloudinarySigned(file, uploadFolder);
         const imageUrl = uploaded?.secure_url;
         if (!imageUrl) throw new Error("Không lấy được URL ảnh sau khi upload.");
 
-        const editor = quillRef.current?.getEditor();
-        if (!editor) return;
+        const editor = await waitForQuill(quillRef);
+        if (!editor) {
+          throw new Error(
+            "Trình soạn thảo chưa sẵn sàng. Thử đóng/mở lại form hoặc bấm vào ô soạn thảo rồi chèn ảnh lại.",
+          );
+        }
+
         const range = editor.getSelection(true);
-        const index = range ? range.index : editor.getLength();
+        const index = range ? range.index : Math.max(0, editor.getLength() - 1);
         editor.insertEmbed(index, "image", imageUrl, "user");
         editor.setSelection(index + 1, 0, "user");
+
+        // Dùng innerHTML — getSemanticHTML() của Quill 2 có thể bỏ <img> → mất ảnh trong state / DB
+        const syncHtml = editor.root?.innerHTML ?? "";
+        onChangeRef.current?.(syncHtml);
+
         toast.success("Đã chèn ảnh vào nội dung.");
       } catch (error) {
         toast.error(error?.message || "Upload ảnh thất bại.");
+      } finally {
+        e.target.value = "";
       }
-    };
-  }, []);
+    },
+    [uploadFolder],
+  );
 
   const m = useMemo(() => {
     const baseModules = modules ? { ...modules } : { ...defaultModules };
     if (Array.isArray(baseModules.toolbar)) {
       baseModules.toolbar = {
         container: baseModules.toolbar,
-        handlers: { image: handleImageSelectAndUpload },
+        handlers: { image: openFilePicker },
       };
       return baseModules;
     }
@@ -103,15 +148,24 @@ export default function RichTextEditor({
       ...existingToolbar,
       handlers: {
         ...existingHandlers,
-        image: handleImageSelectAndUpload,
+        image: openFilePicker,
       },
     };
     return baseModules;
-  }, [modules, handleImageSelectAndUpload]);
+  }, [modules, openFilePicker]);
   const f = useMemo(() => formats || defaultFormats, [formats]);
 
   return (
     <Box sx={{ mb: 2 }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/*"
+        style={{ display: "none" }}
+        aria-hidden
+        tabIndex={-1}
+        onChange={(ev) => void handleHiddenFileChange(ev)}
+      />
       {label ? (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
           {label}
@@ -158,6 +212,7 @@ export default function RichTextEditor({
           modules={m}
           formats={f}
           placeholder={placeholder || ""}
+          useSemanticHTML={false}
         />
       </Box>
     </Box>

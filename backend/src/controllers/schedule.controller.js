@@ -51,6 +51,36 @@ const updateSchedule = async (req, res) => {
   }
 };
 
+const completeSchedule = async (req, res) => {
+  try {
+    const updated = await ScheduleService.completeSchedule(req.params.id, req.user);
+    if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch khởi hành' });
+    res.status(200).json({ success: true, data: updated, message: 'Đã cập nhật trạng thái lịch khởi hành: Hoàn thành' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const startSchedule = async (req, res) => {
+  try {
+    const updated = await ScheduleService.startSchedule(req.params.id, req.user);
+    if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch khởi hành' });
+    res.status(200).json({ success: true, data: updated, message: 'Đã cập nhật trạng thái lịch khởi hành: Khởi hành' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const cancelSchedule = async (req, res) => {
+  try {
+    const updated = await ScheduleService.cancelSchedule(req.params.id, req.user);
+    if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch khởi hành' });
+    res.status(200).json({ success: true, data: updated, message: 'Đã hủy lịch khởi hành' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 const deleteSchedule = async (req, res) => {
   try {
     await ScheduleService.deleteScheduleById(req.params.id);
@@ -60,4 +90,4 @@ const deleteSchedule = async (req, res) => {
   }
 };
 
-module.exports = { getAllSchedules, getScheduleById, createSchedule, bulkCreateSchedules, updateSchedule, deleteSchedule };
+module.exports = { getAllSchedules, getScheduleById, createSchedule, bulkCreateSchedules, updateSchedule, startSchedule, completeSchedule, cancelSchedule, deleteSchedule };

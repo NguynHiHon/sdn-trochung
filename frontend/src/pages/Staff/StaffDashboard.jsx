@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box, Typography, Grid, Card, CardContent, Chip,
     CircularProgress, Avatar, Divider, Paper, Button,
-    Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
+    Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Tooltip,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -42,13 +42,22 @@ export default function StaffDashboard() {
     const currentUser = useSelector((state) => state.auth.currentUser);
 
     const [stats, setStats] = useState({ total: 0, pending: 0, in_progress: 0, completed: 0 });
-    const [recentAssignments, setRecentAssignments] = useState([]);
+    const [allAssignments, setAllAssignments] = useState([]);
     const [upcomingTours, setUpcomingTours] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeFilter, setActiveFilter] = useState(null); // null = tất cả
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [selectedTourCode, setSelectedTourCode] = useState(null);
+
+    const effectiveStatus = (a) =>
+        a.bookingId?.status === 'CANCELLED' ? 'cancelled' : a.status;
+
+    const recentAssignments = useMemo(() => {
+        if (activeFilter === null) return allAssignments.slice(0, 10);
+        return allAssignments.filter((a) => effectiveStatus(a) === activeFilter).slice(0, 10);
+    }, [activeFilter, allAssignments]);
 
     const handleRowClick = (assignment) => {
         setSelectedBookingId(assignment.bookingId?._id || assignment.bookingId);
@@ -56,36 +65,37 @@ export default function StaffDashboard() {
         setDetailOpen(true);
     };
 
+    const handleFilterClick = (filterKey) => {
+        setActiveFilter((prev) => (prev === filterKey ? null : filterKey));
+    };
+
+    // Fetch 1 lần tất cả assignments + tours
     useEffect(() => {
         if (!currentUser?._id) return;
 
         const fetchData = async () => {
             setLoading(true);
-
-            // Fetch assignments cho stats + preview (độc lập với schedules)
             try {
-                const statsRes = await getAssignments({ staffId: currentUser._id, page: 1, limit: 200 });
-                const all = statsRes?.data || [];
+                const res = await getAssignments({ staffId: currentUser._id, page: 1, limit: 500 });
+                const all = res?.data || [];
+                setAllAssignments(all);
 
-                const pending = all.filter(a => a.status === 'pending').length;
-                const in_progress = all.filter(a => a.status === 'in_progress').length;
-                const completed = all.filter(a => a.status === 'completed').length;
-                setStats({ total: all.length, pending, in_progress, completed });
-
-                // Preview: ưu tiên pending + in_progress trước, giới hạn 10
-                const active = all.filter(a => a.status === 'pending' || a.status === 'in_progress');
-                const rest = all.filter(a => a.status !== 'pending' && a.status !== 'in_progress');
-                setRecentAssignments([...active, ...rest].slice(0, 10));
+                const count = (s) => all.filter((a) => (a.bookingId?.status === 'CANCELLED' ? 'cancelled' : a.status) === s).length;
+                setStats({
+                    total: all.length,
+                    pending: count('pending'),
+                    in_progress: count('in_progress'),
+                    completed: count('completed'),
+                });
             } catch (err) {
                 toast.error('Lỗi tải danh sách tư vấn: ' + (err.response?.data?.message || err.message));
             }
 
-            // Fetch upcoming tours (độc lập)
             try {
                 const schedRes = await getAllSchedules({ tourGuideId: currentUser._id, status: 'Available', page: 1, limit: 5 });
                 setUpcomingTours(schedRes?.data || []);
             } catch {
-                // Tours không load được không ảnh hưởng phần tư vấn
+                // Tours không load được không ảnh hưởng phần còn lại
             }
 
             setLoading(false);
@@ -108,6 +118,7 @@ export default function StaffDashboard() {
             icon: <AssignmentIcon fontSize="large" />,
             color: '#2b6f56',
             bg: 'rgba(43,111,86,0.08)',
+            filterKey: null,
         },
         {
             label: 'Chờ xử lý',
@@ -115,6 +126,7 @@ export default function StaffDashboard() {
             icon: <PendingActionsIcon fontSize="large" />,
             color: '#ed6c02',
             bg: 'rgba(237,108,2,0.08)',
+            filterKey: 'pending',
         },
         {
             label: 'Đang tư vấn',
@@ -122,6 +134,7 @@ export default function StaffDashboard() {
             icon: <SyncAltIcon fontSize="large" />,
             color: '#0288d1',
             bg: 'rgba(2,136,209,0.08)',
+            filterKey: 'in_progress',
         },
         {
             label: 'Hoàn thành',
@@ -129,8 +142,11 @@ export default function StaffDashboard() {
             icon: <CheckCircleOutlineIcon fontSize="large" />,
             color: '#2e7d32',
             bg: 'rgba(46,125,50,0.08)',
+            filterKey: 'completed',
         },
     ];
+
+    const activeCard = statCards.find((c) => c.filterKey === activeFilter);
 
     if (loading) {
         return (
@@ -178,45 +194,51 @@ export default function StaffDashboard() {
 
             {/* Stat Cards */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                {statCards.map((card) => (
-                    <Grid item xs={12} sm={6} md={3} key={card.label}>
-                        <Card
-                            elevation={0}
-                            sx={{
-                                border: '1px solid #eee',
-                                borderRadius: 3,
-                                transition: 'box-shadow 0.2s',
-                                '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.08)' },
-                            }}
-                        >
-                            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: 2,
-                                        bgcolor: card.bg,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: card.color,
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    {card.icon}
-                                </Box>
-                                <Box>
-                                    <Typography variant="h4" fontWeight={700} color={card.color}>
-                                        {card.value}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {card.label}
-                                    </Typography>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
+                {statCards.map((card) => {
+                    const isActive = activeFilter === card.filterKey;
+                    return (
+                        <Grid item xs={12} sm={6} md={3} key={card.label}>
+                            <Card
+                                elevation={0}
+                                onClick={() => handleFilterClick(card.filterKey)}
+                                sx={{
+                                    border: isActive ? `2px solid ${card.color}` : '1px solid #eee',
+                                    borderRadius: 3,
+                                    cursor: 'pointer',
+                                    transition: 'box-shadow 0.2s, border 0.2s',
+                                    bgcolor: isActive ? card.bg : 'background.paper',
+                                    '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.08)' },
+                                }}
+                            >
+                                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box
+                                        sx={{
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: 2,
+                                            bgcolor: card.bg,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: card.color,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {card.icon}
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="h4" fontWeight={700} color={card.color}>
+                                            {card.value}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {card.label}
+                                        </Typography>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    );
+                })}
             </Grid>
 
             <Grid container spacing={3}>
@@ -227,13 +249,21 @@ export default function StaffDashboard() {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <AssignmentIcon sx={{ color: '#0288d1' }} />
                                 <Typography variant="h6" fontWeight={600}>
-                                    Danh sách Tư vấn khách hàng
+                                    {activeCard ? `Nhiệm vụ: ${activeCard.label}` : 'Danh sách Tư vấn khách hàng'}
                                 </Typography>
+                                {activeFilter && (
+                                    <Chip
+                                        label="Bỏ lọc"
+                                        size="small"
+                                        onDelete={() => setActiveFilter(null)}
+                                        sx={{ ml: 1 }}
+                                    />
+                                )}
                             </Box>
-                            <Button 
-                                size="small" 
-                                component={Link} 
-                                to="/staff/assignments" 
+                            <Button
+                                size="small"
+                                component={Link}
+                                to="/staff/assignments"
                                 endIcon={<ArrowForwardIcon />}
                                 sx={{ textTransform: 'none', borderRadius: 2 }}
                             >
@@ -242,11 +272,12 @@ export default function StaffDashboard() {
                         </Box>
                         <Divider sx={{ mb: 2 }} />
 
-                        {recentAssignments.length === 0 ? (
+                        {recentAssignments.length === 0 && (
                             <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                                Chưa có nhiệm vụ nào được phân công!
+                                {activeCard ? `Không có nhiệm vụ nào — ${activeCard.label}.` : 'Không có nhiệm vụ nào.'}
                             </Typography>
-                        ) : (
+                        )}
+                        {recentAssignments.length > 0 && (
                             <TableContainer sx={{ maxHeight: 400, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
@@ -302,12 +333,23 @@ export default function StaffDashboard() {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Chip
-                                                            label={statusLabel[a.status] || a.status}
-                                                            size="small"
-                                                            color={statusColor[a.status] || 'default'}
-                                                            sx={{ fontWeight: 500 }}
-                                                        />
+                                                        {booking?.status === 'CANCELLED' ? (
+                                                            <Tooltip title="Booking đã hủy, không thể thay đổi trạng thái nhiệm vụ" arrow>
+                                                                <Chip
+                                                                    label="Đã hủy"
+                                                                    size="small"
+                                                                    color="default"
+                                                                    sx={{ fontWeight: 500 }}
+                                                                />
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Chip
+                                                                label={statusLabel[a.status] || a.status}
+                                                                size="small"
+                                                                color={statusColor[a.status] || 'default'}
+                                                                sx={{ fontWeight: 500 }}
+                                                            />
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             );

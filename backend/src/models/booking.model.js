@@ -27,7 +27,7 @@ const bookingSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['HOLD', 'CONFIRMED', 'CANCELLED', 'COMPLETED'],
+        enum: ['HOLD', 'CONFIRMED', 'DEPARTED', 'CANCELLED', 'COMPLETED'],
         default: 'HOLD'
     },
     totalPrice: {
@@ -36,7 +36,7 @@ const bookingSchema = new mongoose.Schema({
     },
     holdExpiresAt: {
         type: Date,
-        required: function() {
+        required: function () {
             return this.status === 'HOLD';
         }
     },
@@ -51,6 +51,22 @@ const bookingSchema = new mongoose.Schema({
         },
         address: { type: String },
         specialRequest: { type: String }
+    },
+    paymentRequest: {
+        status: {
+            type: String,
+            enum: ['none', 'requested', 'paid'],
+            default: 'none',
+        },
+        requestedAt: { type: Date, default: null },
+        requestedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+        },
+        paidAt: { type: Date, default: null },
+        paidAmount: { type: Number, default: null },
+        paidTxId: { type: String, default: null },
     },
     cancelReason: { type: String, default: '' },
 }, {

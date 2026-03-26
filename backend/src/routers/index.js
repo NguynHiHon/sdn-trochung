@@ -12,6 +12,8 @@ const scheduleRouter = require('./schedule.router');
 const participantRouter = require('./participant.router');
 const notificationRouter = require('./notification.router');
 const assignmentRouter = require('./assignment.router');
+const certificateRouter = require('./certificate.router');
+const sepayRouter = require('./sepayRouter');
 const router = express.Router();
 
 router.use('/auth', authRouter);
@@ -26,6 +28,8 @@ router.use('/schedules', scheduleRouter);
 router.use('/participants', participantRouter);
 router.use('/notifications', notificationRouter);
 router.use('/assignments', assignmentRouter);
+router.use('/certificates', certificateRouter);
+router.use('/sepay', sepayRouter);
 router.use('/', bookingRouter);
 
 module.exports = router;

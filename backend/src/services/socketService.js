@@ -59,6 +59,18 @@ const init = (socketIoInstance) => {
             socket.leave(`tour_${tourId}`);
         });
 
+        // Booking room cho trang thanh toán public (roomName = bookingCode)
+        socket.on('join-booking-room', (bookingCode) => {
+            if (!bookingCode) return;
+            socket.join(String(bookingCode).trim().toUpperCase());
+        });
+
+        // Backward-compat với pattern từ dự án SEP
+        socket.on('join-order-room', (code) => {
+            if (!code) return;
+            socket.join(String(code).trim().toUpperCase());
+        });
+
         socket.on('disconnect', () => {
             if (socket.userId) {
                 const sockets = userSocketMap.get(socket.userId);
@@ -105,6 +117,14 @@ const emitToTourRoom = (tourId, event, data) => {
     io.to(`tour_${tourId}`).emit(event, data);
 };
 
+/**
+ * Emit event vào room = bookingCode (dùng cho trang payment/qr)
+ */
+const emitToBookingRoom = (bookingCode, event, data) => {
+    if (!io || !bookingCode) return;
+    io.to(String(bookingCode).trim().toUpperCase()).emit(event, data);
+};
+
 const getIO = () => io;
 
-module.exports = { init, emitToUser, emitToAdmins, emitToTourRoom, getIO };
+module.exports = { init, emitToUser, emitToAdmins, emitToTourRoom, emitToBookingRoom, getIO };

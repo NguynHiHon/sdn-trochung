@@ -2,13 +2,18 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box, Typography, Table, TableHead, TableRow, TableCell, TableBody,
     TableContainer, Paper, Chip, CircularProgress, TextField, MenuItem,
-    Pagination, Tooltip, Badge, Button,
+    Pagination, Tooltip, Badge, Button, Dialog, DialogTitle, DialogContent,
+    DialogActions,
 } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
+import BlockIcon from '@mui/icons-material/Block';
 import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { getAssignments, updateAssignmentStatus } from '../../services/assignmentApi';
+import { confirmBooking, cancelBookingByAdmin, createPaymentRequest } from '../../services/bookingApi';
 import { getSocket } from '../../config/socketClient';
 import StaffBookingDetailModal from '../../components/staff/StaffBookingDetailModal';
 
@@ -22,8 +27,15 @@ const STATUS_META = {
 const BOOKING_STATUS_META = {
     HOLD: { label: 'Giữ chỗ', color: 'warning' },
     CONFIRMED: { label: 'Đã xác nhận', color: 'success' },
+    DEPARTED: { label: 'Khởi hành', color: 'warning' },
     CANCELLED: { label: 'Đã hủy', color: 'default' },
     COMPLETED: { label: 'Hoàn thành', color: 'info' },
+};
+
+const PAYMENT_STATUS_META = {
+    none: { label: 'Chưa yêu cầu thanh toán', color: 'default' },
+    requested: { label: 'Đã tạo yêu cầu thanh toán', color: 'info' },
+    paid: { label: 'Đã thanh toán', color: 'success' },
 };
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -37,7 +49,13 @@ export default function StaffAssignments() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
-    const [newCount, setNewCount] = useState(0); // badge đếm assignment mới chưa xẻ
+    const [newCount, setNewCount] = useState(0);
+    const [cancelTarget, setCancelTarget] = useState(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelSubmitting, setCancelSubmitting] = useState(false);
+    const [confirmingBookingId, setConfirmingBookingId] = useState(null);
+    const [requestingPaymentId, setRequestingPaymentId] = useState(null);
+    const [completingAssignmentId, setCompletingAssignmentId] = useState(null);
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
@@ -49,7 +67,6 @@ export default function StaffAssignments() {
         setDetailOpen(true);
     };
 
-    // ref để fetchAssignments có thể gọi từ socket listener mà không stale closure
     const fetchRef = useRef(null);
 
     const fetchAssignments = useCallback(async (p, st) => {
@@ -70,32 +87,30 @@ export default function StaffAssignments() {
         }
     }, [currentUser?._id]);
 
-    // Giữ ref luôn cập nhật để socket listener không stale
     fetchRef.current = () => fetchAssignments(1, status);
 
     useEffect(() => {
         fetchAssignments(1, status);
     }, [fetchAssignments, status]);
 
-    // Socket listener — tự động refresh khi admin phân công mới
     useEffect(() => {
         const socket = getSocket();
         if (!socket) return;
-
         const handler = (notification) => {
             if (notification?.type === 'assignment') {
                 setNewCount(prev => prev + 1);
                 toast.info('🔔 Bạn có một phiếu tư vấn mới!', { duration: 4000 });
-                // Refresh trang 1 với filter hiện tại
                 fetchRef.current?.();
             }
         };
-
         socket.on('newNotification', handler);
         return () => socket.off('newNotification', handler);
     }, []);
 
     const handleStatusChange = async (assignmentId, nextStatus) => {
+        if (nextStatus === 'completed') {
+            setCompletingAssignmentId(assignmentId);
+        }
         try {
             const res = await updateAssignmentStatus(assignmentId, nextStatus);
             if (res.success) {
@@ -113,6 +128,101 @@ export default function StaffAssignments() {
             }
         } catch (err) {
             toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
+        } finally {
+            if (nextStatus === 'completed') {
+                setCompletingAssignmentId(null);
+            }
+        }
+    };
+
+    const handleConfirmBooking = async (assignment) => {
+        const bookingId = assignment?.bookingId?._id;
+        if (!bookingId) return;
+        setConfirmingBookingId(bookingId);
+        try {
+            const res = await confirmBooking(bookingId);
+            if (res.success) {
+                setAssignments((prev) =>
+                    prev.map((a) =>
+                        a._id === assignment._id
+                            ? { ...a, bookingId: { ...a.bookingId, status: 'CONFIRMED', holdExpiresAt: null } }
+                            : a,
+                    ),
+                );
+                toast.success('Đã xác nhận khách chốt tour thành công');
+            } else {
+                toast.error(res.message || 'Xác nhận khách chốt tour thất bại');
+            }
+        } catch (err) {
+            toast.error('Lỗi xác nhận khách chốt tour: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setConfirmingBookingId(null);
+        }
+    };
+
+    const openCancelBookingDialog = (assignment) => {
+        setCancelTarget(assignment);
+        setCancelReason('');
+    };
+
+    const handleConfirmCancelBooking = async () => {
+        const bookingId = cancelTarget?.bookingId?._id;
+        if (!bookingId) return;
+        setCancelSubmitting(true);
+        try {
+            const res = await cancelBookingByAdmin(bookingId, cancelReason.trim());
+            if (res.success) {
+                setAssignments((prev) =>
+                    prev.map((a) =>
+                        a._id === cancelTarget._id
+                            ? { ...a, bookingId: { ...a.bookingId, status: 'CANCELLED', cancelReason: cancelReason.trim() } }
+                            : a,
+                    ),
+                );
+                toast.success('Đã hủy booking thành công');
+                setCancelTarget(null);
+            } else {
+                toast.error(res.message || 'Hủy booking thất bại');
+            }
+        } catch (err) {
+            toast.error('Lỗi hủy booking: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setCancelSubmitting(false);
+        }
+    };
+
+    const handleCreatePaymentRequest = async (assignment) => {
+        const bookingId = assignment?.bookingId?._id;
+        if (!bookingId) return;
+        setRequestingPaymentId(bookingId);
+        try {
+            const res = await createPaymentRequest(bookingId);
+            if (res.success) {
+                setAssignments((prev) =>
+                    prev.map((a) =>
+                        a._id === assignment._id
+                            ? {
+                                ...a,
+                                bookingId: {
+                                    ...a.bookingId,
+                                    paymentRequest: {
+                                        ...(a.bookingId?.paymentRequest || {}),
+                                        status: 'requested',
+                                        requestedAt: new Date().toISOString(),
+                                    },
+                                },
+                            }
+                            : a,
+                    ),
+                );
+                toast.success('Đã tạo yêu cầu thanh toán');
+            } else {
+                toast.error(res.message || 'Không thể tạo yêu cầu thanh toán');
+            }
+        } catch (err) {
+            toast.error('Lỗi tạo yêu cầu thanh toán: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setRequestingPaymentId(null);
         }
     };
 
@@ -190,7 +300,22 @@ export default function StaffAssignments() {
                                     const tour = booking?.tourId;
                                     const schedule = booking?.scheduleId;
                                     const bStatus = BOOKING_STATUS_META[booking?.status] || { label: booking?.status, color: 'default' };
-                                    const aStatus = STATUS_META[a.status] || { label: a.status, color: 'default' };
+                                    const paymentStatusKey = booking?.paymentRequest?.status || 'none';
+                                    const paymentStatus = PAYMENT_STATUS_META[paymentStatusKey] || PAYMENT_STATUS_META.none;
+                                    const canConfirmBooking = a.status === 'in_progress' && booking?.status === 'HOLD';
+                                    const canCancelBooking =
+                                        ['in_progress', 'completed'].includes(a.status) &&
+                                        ['HOLD', 'CONFIRMED'].includes(booking?.status);
+                                    const canCreatePaymentRequest =
+                                        ['in_progress', 'completed'].includes(a.status) &&
+                                        booking?.status === 'CONFIRMED' &&
+                                        paymentStatusKey === 'none';
+                                    const canOpenPaymentPage = Boolean(booking?.bookingCode) && ['requested', 'paid'].includes(paymentStatusKey);
+                                    const paymentPageUrl = canOpenPaymentPage
+                                        ? `${window.location.origin}/payment/qr/${encodeURIComponent(booking.bookingCode)}`
+                                        : '';
+                                    const canCompleteConsult =
+                                        a.status === 'in_progress' && ['CONFIRMED', 'CANCELLED'].includes(booking?.status);
                                     return (
                                         <TableRow
                                             key={a._id}
@@ -198,24 +323,19 @@ export default function StaffAssignments() {
                                             onClick={() => handleRowClick(a)}
                                             sx={{ cursor: 'pointer' }}
                                         >
-                                            {/* Booking code */}
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight={700} color="primary.main">
                                                     {booking?.bookingCode || '—'}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Tour */}
                                             <TableCell>
-                                                <Typography variant="body2" fontWeight={600}>
-                                                    {tour?.code || '—'}
-                                                </Typography>
+                                                <Typography variant="body2" fontWeight={600}>{tour?.code || '—'}</Typography>
                                                 <Typography variant="caption" color="text.secondary" display="block">
                                                     {tour?.name?.vi || ''}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Schedule date */}
                                             <TableCell>
                                                 <Typography variant="body2">{fmt(schedule?.startDate)}</Typography>
                                                 {schedule?.endDate && (
@@ -225,7 +345,6 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Contact info */}
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight={600}>
                                                     {booking?.contactInfo?.fullName || '—'}
@@ -243,31 +362,29 @@ export default function StaffAssignments() {
                                                 )}
                                             </TableCell>
 
-                                            {/* Guests */}
                                             <TableCell align="center">
                                                 <Typography fontWeight={600}>{booking?.totalGuests || 0}</Typography>
                                             </TableCell>
 
-                                            {/* Price */}
                                             <TableCell align="right">
                                                 <Typography variant="body2" fontWeight={600} color="success.dark">
                                                     {fmtMoney(booking?.totalPrice)}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Booking status */}
                                             <TableCell>
-                                                <Chip label={bStatus.label} size="small" color={bStatus.color} />
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                                                    <Chip label={bStatus.label} size="small" color={bStatus.color} />
+                                                    <Chip label={paymentStatus.label} size="small" color={paymentStatus.color} variant="outlined" />
+                                                </Box>
                                             </TableCell>
 
-                                            {/* Assigned by */}
                                             <TableCell>
                                                 <Typography variant="body2">
                                                     {a.assignedBy?.fullName || a.assignedBy?.username || '—'}
                                                 </Typography>
                                             </TableCell>
 
-                                            {/* Note */}
                                             <TableCell sx={{ maxWidth: 160 }}>
                                                 {a.note ? (
                                                     <Tooltip title={a.note} arrow>
@@ -301,12 +418,110 @@ export default function StaffAssignments() {
                                                             Từ chối
                                                         </Button>
                                                     </Box>
+                                                ) : a.status === 'in_progress' ? (
+                                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                        {canConfirmBooking && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                color="success"
+                                                                onClick={() => handleConfirmBooking(a)}
+                                                                disabled={confirmingBookingId === booking?._id}
+                                                            >
+                                                                {confirmingBookingId === booking?._id ? 'Đang xác nhận...' : 'Xác nhận khách chốt tour'}
+                                                            </Button>
+                                                        )}
+
+                                                        {canCreatePaymentRequest && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="primary"
+                                                                startIcon={<PaidOutlinedIcon fontSize="small" />}
+                                                                onClick={() => handleCreatePaymentRequest(a)}
+                                                                disabled={requestingPaymentId === booking?._id}
+                                                            >
+                                                                {requestingPaymentId === booking?._id ? 'Đang tạo...' : 'Tạo yêu cầu thanh toán'}
+                                                            </Button>
+                                                        )}
+
+                                                        {canOpenPaymentPage && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => window.open(paymentPageUrl, '_blank', 'noopener,noreferrer')}
+                                                            >
+                                                                Mở trang thanh toán
+                                                            </Button>
+                                                        )}
+
+                                                        {canCompleteConsult && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                color="info"
+                                                                startIcon={<CheckCircleOutlineIcon fontSize="small" />}
+                                                                onClick={() => handleStatusChange(a._id, 'completed')}
+                                                                disabled={completingAssignmentId === a._id}
+                                                            >
+                                                                {completingAssignmentId === a._id ? 'Đang lưu...' : 'Hoàn thành tư vấn'}
+                                                            </Button>
+                                                        )}
+
+                                                        {canCancelBooking && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="error"
+                                                                startIcon={<BlockIcon fontSize="small" />}
+                                                                onClick={() => openCancelBookingDialog(a)}
+                                                            >
+                                                                Hủy booking
+                                                            </Button>
+                                                        )}
+                                                    </Box>
                                                 ) : (
-                                                    <Chip
-                                                        label={STATUS_META[a.status]?.label || a.status}
-                                                        size="small"
-                                                        color={STATUS_META[a.status]?.color || 'default'}
-                                                    />
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8, alignItems: 'flex-start' }}>
+                                                        <Chip
+                                                            label={STATUS_META[a.status]?.label || a.status}
+                                                            size="small"
+                                                            color={STATUS_META[a.status]?.color || 'default'}
+                                                        />
+                                                        {canCreatePaymentRequest && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="primary"
+                                                                startIcon={<PaidOutlinedIcon fontSize="small" />}
+                                                                onClick={() => handleCreatePaymentRequest(a)}
+                                                                disabled={requestingPaymentId === booking?._id}
+                                                            >
+                                                                {requestingPaymentId === booking?._id ? 'Đang tạo...' : 'Tạo yêu cầu thanh toán'}
+                                                            </Button>
+                                                        )}
+
+                                                        {canOpenPaymentPage && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => window.open(paymentPageUrl, '_blank', 'noopener,noreferrer')}
+                                                            >
+                                                                Mở trang thanh toán
+                                                            </Button>
+                                                        )}
+
+                                                        {canCancelBooking && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="error"
+                                                                startIcon={<BlockIcon fontSize="small" />}
+                                                                onClick={() => openCancelBookingDialog(a)}
+                                                            >
+                                                                Hủy booking
+                                                            </Button>
+                                                        )}
+                                                    </Box>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -335,6 +550,40 @@ export default function StaffAssignments() {
                 bookingId={selectedBookingId}
                 tourCode={selectedTourCode}
             />
+
+            <Dialog
+                open={Boolean(cancelTarget)}
+                onClose={() => !cancelSubmitting && setCancelTarget(null)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Xác nhận hủy booking</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Bạn có chắc muốn hủy booking {cancelTarget?.bookingId?.bookingCode}?
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Lý do hủy booking"
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Nhập lý do hủy để lưu lịch sử"
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setCancelTarget(null)} disabled={cancelSubmitting}>Đóng</Button>
+                    <Button
+                        color="error"
+                        variant="contained"
+                        onClick={handleConfirmCancelBooking}
+                        disabled={cancelSubmitting}
+                    >
+                        {cancelSubmitting ? 'Đang hủy...' : 'Xác nhận hủy'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
   Drawer,
@@ -20,6 +20,8 @@ import {
   CircularProgress,
   Button,
   Chip,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import CollectionsIcon from "@mui/icons-material/Collections";
@@ -32,6 +34,8 @@ import PeopleIcon from "@mui/icons-material/People";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import { io } from "socket.io-client";
 import {
   getMyNotifications,
@@ -39,6 +43,7 @@ import {
   markAsRead,
   markAllAsRead,
 } from "../../services/notificationApi";
+import { forceClientLogout } from "../../services/authService";
 
 const drawerWidth = 260;
 const SOCKET_URL =
@@ -46,6 +51,8 @@ const SOCKET_URL =
 
 export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileAnchor, setProfileAnchor] = useState(null);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = useSelector((state) => state.auth.currentUser);
@@ -61,13 +68,31 @@ export default function AdminLayout() {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleOpenProfileMenu = (event) => {
+    setProfileAnchor(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setProfileAnchor(null);
+  };
+
+  const handleGoProfile = () => {
+    handleCloseProfileMenu();
+    navigate("/profile");
+  };
+
+  const handleLogout = async () => {
+    handleCloseProfileMenu();
+    await forceClientLogout(dispatch, navigate, "/signin", location.pathname);
+  };
+
   // Fetch unread count initially
   useEffect(() => {
     getUnreadCount()
       .then((res) => {
         if (res.success) setUnreadCount(res.count);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Socket.IO connection
@@ -212,10 +237,10 @@ export default function AdminLayout() {
         {menuItems.map((item) => {
           const selected = item.matchPaths
             ? item.matchPaths.some(
-                (p) =>
-                  location.pathname === p ||
-                  location.pathname.startsWith(p + "/"),
-              )
+              (p) =>
+                location.pathname === p ||
+                location.pathname.startsWith(p + "/"),
+            )
             : location.pathname === item.path;
           return (
             <ListItem key={item.text} disablePadding>
@@ -289,9 +314,36 @@ export default function AdminLayout() {
             </Badge>
           </IconButton>
 
-          <Avatar sx={{ bgcolor: "#2b6f56" }}>AD</Avatar>
+          <IconButton onClick={handleOpenProfileMenu} sx={{ p: 0 }}>
+            <Avatar sx={{ bgcolor: "#2b6f56" }}>
+              {(currentUser?.fullName || currentUser?.username || "AD")
+                .charAt(0)
+                .toUpperCase()}
+            </Avatar>
+          </IconButton>
         </Toolbar>
       </AppBar>
+
+      <Menu
+        anchorEl={profileAnchor}
+        open={Boolean(profileAnchor)}
+        onClose={handleCloseProfileMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem onClick={handleGoProfile}>
+          <ListItemIcon>
+            <PersonOutlineIcon fontSize="small" />
+          </ListItemIcon>
+          Trang cá nhân
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          <ListItemIcon>
+            <LogoutOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          Đăng xuất
+        </MenuItem>
+      </Menu>
 
       {/* Notification Popover */}
       <Popover

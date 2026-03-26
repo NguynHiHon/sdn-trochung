@@ -48,10 +48,10 @@ app.use("/api", router);
 
 databaseconfig();
 
-server.listen(process.env.PORT || 5000, () => {
+server.listen(process.env.PORT || 9999, () => {
   try {
     console.log(
-      `server đã được khởi tạo và chạy ở cổng ${process.env.PORT || 5000}`,
+      `server đã được khởi tạo và chạy ở cổng ${process.env.PORT || 9999}`,
     );
   } catch (error) {
     console.error("Lỗi khi khởi tạo server:", error);

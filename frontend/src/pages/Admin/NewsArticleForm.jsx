@@ -9,6 +9,8 @@ import {
   Tabs,
   Tab,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import Grid from "@mui/material/GridLegacy";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
@@ -45,6 +47,7 @@ export default function NewsArticleForm() {
     content: { vi: "", en: "" },
     thumbnail: "",
     coverImage: "",
+    isFeatured: false,
     status: "draft",
     publishedAt: "",
   });
@@ -66,6 +69,11 @@ export default function NewsArticleForm() {
               content: a.content || { vi: "", en: "" },
               thumbnail: a.thumbnail?._id || a.thumbnail || "",
               coverImage: a.coverImage?._id || a.coverImage || "",
+              isFeatured:
+                a.isFeatured === true ||
+                a.featured === true ||
+                String(a.isFeatured).toLowerCase() === "true" ||
+                String(a.featured).toLowerCase() === "true",
               status: a.status || "draft",
               publishedAt: a.publishedAt
                 ? new Date(a.publishedAt).toISOString().slice(0, 16)
@@ -94,7 +102,12 @@ export default function NewsArticleForm() {
     }
     setSaving(true);
     try {
-      const payload = { ...form };
+      const featuredValue = Boolean(form.isFeatured);
+      const payload = {
+        ...form,
+        isFeatured: featuredValue,
+        featured: featuredValue,
+      };
       if (!payload.thumbnail) delete payload.thumbnail;
       if (!payload.coverImage) delete payload.coverImage;
       if (!payload.publishedAt) delete payload.publishedAt;
@@ -160,6 +173,20 @@ export default function NewsArticleForm() {
                 </MenuItem>
               ))}
             </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <FormControlLabel
+              sx={{ mt: 0.5 }}
+              control={
+                <Switch
+                  checked={!!form.isFeatured}
+                  onChange={(e) =>
+                    setForm({ ...form, isFeatured: e.target.checked })
+                  }
+                />
+              }
+              label="Bài nổi bật"
+            />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
@@ -261,7 +288,7 @@ export default function NewsArticleForm() {
           label="Nội dung"
           value={form.content.vi}
           onChange={(v) => setBi("content", v)}
-          placeholder="Soạn thảo nội dung bài viết... (có thể chèn ảnh bằng nút image hoặc video YouTube bằng nút video)"
+          placeholder="Soạn thảo nội dung bài viết... (có thể chèn ảnh bằng nút image hoặc video YouTube bằng nút video; nhiều ảnh liên tiếp sẽ tự hiển thị dạng lưới ở trang xem)"
         />
       </LangPanel>
       <LangPanel value={langTab} index={1}>
@@ -285,7 +312,7 @@ export default function NewsArticleForm() {
           label="Content"
           value={form.content.en}
           onChange={(v) => setBi("content", v)}
-          placeholder="Article body... (you can insert images or embed a YouTube video via the video tool)"
+          placeholder="Article body... (you can insert images or embed a YouTube video via the video tool; consecutive images will be shown as a grid on the public page)"
         />
       </LangPanel>
 

@@ -16,10 +16,11 @@ import { getBookingById } from '../../services/bookingApi';
 import { getParticipantsByBookingId } from '../../services/participantApi';
 
 const BOOKING_STATUS = {
-    HOLD:      { label: 'Giữ chỗ',     color: 'warning' },
+    HOLD: { label: 'Giữ chỗ', color: 'warning' },
     CONFIRMED: { label: 'Đã xác nhận', color: 'success' },
-    CANCELLED: { label: 'Đã hủy',      color: 'default' },
-    COMPLETED: { label: 'Hoàn thành',  color: 'info'    },
+    DEPARTED: { label: 'Khởi hành', color: 'warning' },
+    CANCELLED: { label: 'Đã hủy', color: 'default' },
+    COMPLETED: { label: 'Hoàn thành', color: 'info' },
 };
 
 const GENDER_LABEL = { Male: 'Nam', Female: 'Nữ', Other: 'Khác' };

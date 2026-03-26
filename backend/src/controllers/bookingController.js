@@ -71,9 +71,7 @@ const holdBooking = async (req, res) => {
 const confirmBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body?.userId;
-
-        const confirmedBooking = await bookingService.confirmBooking(id, userId);
+        const confirmedBooking = await bookingService.confirmBooking(id, req.user);
         res.status(200).json({ success: true, data: confirmedBooking, message: 'Booking confirmed successfully' });
     } catch (error) {
         if (error.message.includes('not found')) {
@@ -82,6 +80,9 @@ const confirmBooking = async (req, res) => {
         if (error.message.includes('expired')) {
             return res.status(400).json({ success: false, message: error.message });
         }
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -89,14 +90,16 @@ const confirmBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?._id || req.body?.userId;
         const { reason } = req.body;
 
-        const cancelledBooking = await bookingService.cancelBooking(id, userId, reason);
+        const cancelledBooking = await bookingService.cancelBooking(id, req.user, reason);
         res.status(200).json({ success: true, data: cancelledBooking, message: 'Booking cancelled successfully' });
     } catch (error) {
         if (error.message === 'Booking not found') {
             return res.status(404).json({ success: false, message: error.message });
+        }
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: error.message });
     }
@@ -105,10 +108,32 @@ const cancelBooking = async (req, res) => {
 const completeBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const completedBooking = await bookingService.completeBooking(id);
+        const completedBooking = await bookingService.completeBooking(id, req.user);
         res.status(200).json({ success: true, data: completedBooking, message: 'Booking completed successfully' });
     } catch (error) {
         if (error.message.includes('not found') || error.message.includes('cannot')) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const createPaymentRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedBooking = await bookingService.createPaymentRequest(id, req.user);
+        res.status(200).json({ success: true, data: updatedBooking, message: 'Tạo yêu cầu thanh toán thành công' });
+    } catch (error) {
+        if (error.message === 'Booking not found') {
+            return res.status(404).json({ success: false, message: error.message });
+        }
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        if (error.message.includes('thanh toán') || error.message.includes('CONFIRMED')) {
             return res.status(400).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: error.message });
@@ -117,7 +142,7 @@ const completeBooking = async (req, res) => {
 
 const getAllBookings = async (req, res) => {
     try {
-        const result = await bookingService.getAllBookings(req.query);
+        const result = await bookingService.getAllBookings({ ...req.query, actorUser: req.user });
         res.status(200).json({ success: true, ...result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -126,11 +151,31 @@ const getAllBookings = async (req, res) => {
 
 const getBookingById = async (req, res) => {
     try {
-        const booking = await bookingService.getBookingById(req.params.id);
+        const booking = await bookingService.getBookingById(req.params.id, req.user);
         if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
         res.status(200).json({ success: true, data: booking });
     } catch (error) {
+        if (error.message.includes('không có quyền')) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Public: GET /booking/payment-info/:bookingCode
+const getPaymentInfoByBookingCode = async (req, res) => {
+    try {
+        const { bookingCode } = req.params;
+        const data = await bookingService.getPaymentInfoByBookingCode(bookingCode);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        if (error.message === 'BOOKING_CODE_REQUIRED') {
+            return res.status(400).json({ success: false, message: 'Thiếu mã booking' });
+        }
+        if (error.message === 'BOOKING_NOT_FOUND') {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy booking' });
+        }
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -140,6 +185,8 @@ module.exports = {
     confirmBooking,
     cancelBooking,
     completeBooking,
+    createPaymentRequest,
     getAllBookings,
-    getBookingById
+    getBookingById,
+    getPaymentInfoByBookingCode,
 };

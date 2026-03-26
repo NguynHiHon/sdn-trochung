@@ -8,6 +8,67 @@ const BookingAssignment = require('../models/bookingAssignment.model');
 let io;
 const setIO = (socketIoInstance) => { io = socketIoInstance; };
 
+const BOOKING_CODE_PREFIX = 'OXA';
+const BOOKING_CODE_SUFFIX_LEN = 10;
+
+const randomAlnumUpper = (len) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let out = '';
+    for (let i = 0; i < len; i++) {
+        out += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return out;
+};
+
+const generateUniqueBookingCode = async () => {
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const code = `${BOOKING_CODE_PREFIX}${randomAlnumUpper(BOOKING_CODE_SUFFIX_LEN)}`;
+        // ensure uniqueness
+        // eslint-disable-next-line no-await-in-loop
+        const exists = await Booking.exists({ bookingCode: code });
+        if (!exists) return code;
+    }
+    throw new Error('Không thể tạo mã booking duy nhất, vui lòng thử lại');
+};
+
+const hasStaffBookingPermission = async (bookingId, scheduleId, staffId) => {
+    const assignment = await BookingAssignment.findOne({
+        bookingId,
+        staffId,
+        status: { $in: ['in_progress', 'completed'] },
+    }).select('_id');
+
+    if (assignment) return true;
+
+    const schedule = await Schedule.findById(scheduleId).select('tourGuideId');
+    return !!(schedule?.tourGuideId && schedule.tourGuideId.toString() === staffId.toString());
+};
+
+const ensureBookingActionPermission = async (booking, actorUser) => {
+    if (!actorUser) throw new Error('Thiếu thông tin người thực hiện');
+    if (actorUser.role === 'admin') return;
+    if (actorUser.role !== 'staff') {
+        throw new Error('Bạn không có quyền thao tác booking này');
+    }
+
+    const allowed = await hasStaffBookingPermission(booking._id, booking.scheduleId, actorUser._id);
+    if (!allowed) {
+        throw new Error('Bạn không có quyền thao tác booking này');
+    }
+};
+
+const ensureScheduleNotStarted = async (scheduleId) => {
+    const schedule = await Schedule.findById(scheduleId).select('status startDate');
+    if (!schedule) return;
+    if (schedule.status === 'Started' || schedule.status === 'Completed') {
+        throw new Error('Tour đã khởi hành/hoàn thành, không thể thao tác booking');
+    }
+    // Extra safety: if current time passed startDate, treat as started.
+    if (schedule.startDate && schedule.startDate <= new Date()) {
+        throw new Error('Tour đã khởi hành, không thể thao tác booking');
+    }
+};
+
 const getAvailability = async (tourId, month, year) => {
     const tour = await Tour.findById(tourId);
     if (!tour) throw new Error("Tour not found");
@@ -33,6 +94,10 @@ const holdBooking = async (bookingData) => {
     const schedule = await Schedule.findById(scheduleId);
     if (!schedule) throw new Error('Schedule not found');
     if (schedule.tourId.toString() !== tourId.toString()) throw new Error('Schedule does not belong to this tour');
+
+    if (schedule.status && !['Available', 'Full'].includes(schedule.status)) {
+        throw new Error('Không thể đặt chỗ cho lịch đã khởi hành/hủy/hoàn thành');
+    }
 
     const remainingSlots = schedule.capacity - schedule.bookedSlots;
     if (remainingSlots < totalGuests) throw new Error('Not enough slots available');
@@ -62,8 +127,7 @@ const holdBooking = async (bookingData) => {
     await schedule.save();
 
     const holdExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours for admin follow-up
-    const random = Math.floor(100000 + Math.random() * 900000);
-    const bookingCode = `OXA-${new Date().getFullYear()}-${random}`;
+    const bookingCode = await generateUniqueBookingCode();
 
     let booking;
     try {
@@ -113,13 +177,13 @@ const holdBooking = async (bookingData) => {
     return booking;
 };
 
-const confirmBooking = async (bookingId, userId) => {
-    const query = { _id: bookingId, status: 'HOLD' };
-    if (userId) query.userId = userId;
-
-    const booking = await Booking.findOne(query);
+const confirmBooking = async (bookingId, actorUser) => {
+    const booking = await Booking.findOne({ _id: bookingId, status: 'HOLD' });
     if (!booking) throw new Error('Booking not found or not in HOLD status');
     if (new Date() > booking.holdExpiresAt) throw new Error('Booking hold has expired');
+
+    await ensureBookingActionPermission(booking, actorUser);
+    await ensureScheduleNotStarted(booking.scheduleId);
 
     booking.status = 'CONFIRMED';
     booking.holdExpiresAt = undefined;
@@ -127,12 +191,12 @@ const confirmBooking = async (bookingId, userId) => {
     return booking;
 };
 
-const cancelBooking = async (bookingId, userId, reason = '') => {
-    const query = { _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } };
-    if (userId) query.userId = userId;
-
-    const booking = await Booking.findOne(query);
+const cancelBooking = async (bookingId, actorUser, reason = '') => {
+    const booking = await Booking.findOne({ _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } });
     if (!booking) throw new Error('Booking not found');
+
+    await ensureBookingActionPermission(booking, actorUser);
+    await ensureScheduleNotStarted(booking.scheduleId);
 
     const schedule = await Schedule.findById(booking.scheduleId);
     if (schedule) {
@@ -151,13 +215,121 @@ const cancelBooking = async (bookingId, userId, reason = '') => {
     return booking;
 };
 
-const completeBooking = async (bookingId) => {
-    const booking = await Booking.findOne({ _id: bookingId, status: { $in: ['HOLD', 'CONFIRMED'] } });
+const completeBooking = async (bookingId, actorUser) => {
+    const booking = await Booking.findOne({ _id: bookingId, status: { $in: ['DEPARTED', 'CONFIRMED'] } });
     if (!booking) throw new Error('Booking not found or cannot be completed');
+
+    await ensureBookingActionPermission(booking, actorUser);
+
+    // Prefer completing bookings via schedule completion, but keep this as an admin/staff override.
+    const schedule = await Schedule.findById(booking.scheduleId).select('status endDate');
+    if (schedule) {
+        if (schedule.status !== 'Completed' && schedule.endDate && schedule.endDate > new Date()) {
+            throw new Error('Chỉ có thể hoàn thành booking sau khi tour kết thúc');
+        }
+    }
 
     booking.status = 'COMPLETED';
     await booking.save();
 
+    return booking;
+};
+
+const createPaymentRequest = async (bookingId, actorUser) => {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new Error('Booking not found');
+
+    await ensureBookingActionPermission(booking, actorUser);
+    await ensureScheduleNotStarted(booking.scheduleId);
+
+    if (booking.status !== 'CONFIRMED') {
+        throw new Error('Chỉ tạo yêu cầu thanh toán cho booking đã phê duyệt (CONFIRMED)');
+    }
+
+    if (booking.paymentRequest?.status === 'requested') {
+        throw new Error('Booking này đã có yêu cầu thanh toán');
+    }
+
+    booking.paymentRequest = {
+        status: 'requested',
+        requestedAt: new Date(),
+        requestedBy: actorUser?._id || null,
+        paidAt: null,
+        paidAmount: null,
+        paidTxId: null,
+    };
+    await booking.save();
+
+    try {
+        if (actorUser?.role === 'staff') {
+            const notificationService = require('./notification.service');
+            await notificationService.notifyAllAdmins({
+                type: 'booking_confirmed',
+                title: 'Yêu cầu thanh toán mới',
+                content: `Staff ${actorUser.fullName || actorUser.username} đã tạo yêu cầu thanh toán cho booking ${booking.bookingCode}.`,
+                relatedId: booking._id,
+                relatedModel: 'Booking',
+            });
+        }
+    } catch (err) {
+        console.error('[PaymentRequest] notify admin failed:', err.message);
+    }
+
+    return booking;
+};
+
+const getPaymentInfoByBookingCode = async (bookingCode) => {
+    const normalized = String(bookingCode || '').trim().toUpperCase();
+    if (!normalized) throw new Error('BOOKING_CODE_REQUIRED');
+
+    const booking = await Booking.findOne({ bookingCode: normalized })
+        .populate('tourId', 'name code')
+        .select('bookingCode totalPrice status paymentRequest createdAt');
+
+    if (!booking) {
+        const err = new Error('BOOKING_NOT_FOUND');
+        err.status = 404;
+        throw err;
+    }
+
+    return {
+        bookingCode: booking.bookingCode,
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        paymentRequest: booking.paymentRequest || { status: 'none' },
+        createdAt: booking.createdAt,
+        bankAccount: process.env.BANK_ACCOUNT_NUMBER || process.env.SEPAY_BANK_ACCOUNT_NUMBER || '2111644657',
+        bankName: process.env.BANK_NAME || process.env.SEPAY_BANK_NAME || 'BIDV',
+    };
+};
+
+const markPaidBySepayWebhook = async ({ bookingCode, amountIn, txId = null }) => {
+    const normalized = String(bookingCode || '').trim().toUpperCase();
+    if (!normalized) return null;
+
+    const booking = await Booking.findOne({ bookingCode: normalized });
+    if (!booking) return null;
+
+    // Only accept payment for confirmed bookings that have requested payment
+    if (booking.status !== 'CONFIRMED') return null;
+    if (booking.paymentRequest?.status !== 'requested') return null;
+
+    const expected = Number(booking.totalPrice || 0);
+    const received = Number(amountIn || 0);
+    if (!Number.isFinite(received) || received <= 0) return null;
+
+    // Strict match with tiny tolerance
+    if (Math.abs(received - expected) > 0.01) return null;
+
+    booking.paymentRequest = {
+        ...(booking.paymentRequest || {}),
+        status: 'paid',
+        paidAt: new Date(),
+        paidAmount: received,
+        paidTxId: txId ? String(txId) : (booking.paymentRequest?.paidTxId || null),
+    };
+
+    await booking.save();
     return booking;
 };
 
@@ -190,11 +362,34 @@ const releaseExpiredHolds = async () => {
     }
 };
 
-const getAllBookings = async ({ tourId, scheduleId, status, assignmentStatus, page = 1, limit = 20 }) => {
+const getAllBookings = async ({ tourId, scheduleId, status, assignmentStatus, page = 1, limit = 20, actorUser }) => {
     const filter = {};
     if (tourId && tourId !== 'all') filter.tourId = tourId;
     if (scheduleId && scheduleId !== 'all') filter.scheduleId = scheduleId;
     if (status && status !== 'all') filter.status = status;
+
+    if (actorUser?.role === 'staff') {
+        const [assignmentBookingIds, guidedScheduleIds] = await Promise.all([
+            BookingAssignment.find({
+                staffId: actorUser._id,
+                status: { $in: ['in_progress', 'completed'] },
+            }).distinct('bookingId'),
+            Schedule.find({ tourGuideId: actorUser._id }).distinct('_id'),
+        ]);
+
+        const staffFilters = [];
+        if (assignmentBookingIds.length > 0) {
+            staffFilters.push({ _id: { $in: assignmentBookingIds } });
+        }
+        if (guidedScheduleIds.length > 0) {
+            staffFilters.push({ scheduleId: { $in: guidedScheduleIds } });
+        }
+
+        if (staffFilters.length === 0) {
+            return { data: [], total: 0, page: parseInt(page), totalPages: 0 };
+        }
+        filter.$or = staffFilters;
+    }
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -255,10 +450,34 @@ const getAllBookings = async ({ tourId, scheduleId, status, assignmentStatus, pa
     };
 };
 
-const getBookingById = async (bookingId) => {
-    return await Booking.findById(bookingId)
+const getBookingById = async (bookingId, actorUser) => {
+    const booking = await Booking.findById(bookingId)
         .populate('tourId', 'name code durationDays')
         .populate('scheduleId', 'startDate endDate');
+
+    if (!booking) return null;
+
+    if (actorUser?.role === 'staff') {
+        const allowed = await hasStaffBookingPermission(booking._id, booking.scheduleId?._id || booking.scheduleId, actorUser._id);
+        if (!allowed) {
+            throw new Error('Bạn không có quyền xem booking này');
+        }
+    }
+
+    return booking;
 };
 
-module.exports = { setIO, getAvailability, holdBooking, confirmBooking, cancelBooking, completeBooking, releaseExpiredHolds, getAllBookings, getBookingById };
+module.exports = {
+    setIO,
+    getAvailability,
+    holdBooking,
+    confirmBooking,
+    cancelBooking,
+    completeBooking,
+    createPaymentRequest,
+    getPaymentInfoByBookingCode,
+    markPaidBySepayWebhook,
+    releaseExpiredHolds,
+    getAllBookings,
+    getBookingById,
+};
