@@ -4,7 +4,7 @@ import {
     TableContainer, Paper, Chip, CircularProgress, TextField, MenuItem,
     Pagination, Card, CardContent, Grid, LinearProgress, IconButton,
     Tooltip, Dialog, DialogTitle, DialogContent, Divider, FormControl,
-    Select, Button,
+    Select, Button, Collapse,
 } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
@@ -15,10 +15,15 @@ import CloseIcon from '@mui/icons-material/Close';
 import PersonIcon from '@mui/icons-material/Person';
 import BlockIcon from '@mui/icons-material/Block';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import { toast } from 'sonner';
 import { getAllSchedules, updateSchedule } from '../../services/scheduleApi';
 import { getAllBookings, cancelBookingByAdmin, completeBooking } from '../../services/bookingApi';
 import { getAllTours } from '../../services/tourApi';
+import { getParticipantsByBookingId, updateParticipant } from '../../services/participantApi';
+import CertificateModal from '../../components/staff/CertificateModal';
 
 const STATUS_META = {
     Available: { label: 'Còn chỗ',     color: 'success' },
@@ -104,6 +109,20 @@ export default function StaffTours() {
     const [bookings, setBookings] = useState([]);
     const [bookingLoading, setBookingLoading] = useState(false);
 
+    /* Participants expand */
+    const [expandedBookingId, setExpandedBookingId] = useState(null);
+    const [participantsMap, setParticipantsMap] = useState({}); // bookingId → participants[]
+    const [participantsLoading, setParticipantsLoading] = useState(null); // bookingId đang load
+
+    /* Certificate modal */
+    const [certModalParticipant, setCertModalParticipant] = useState(null); // { _id, fullName }
+
+    /* Participant status update */
+    const [participantUpdating, setParticipantUpdating] = useState(null);
+    const [participantCancelTarget, setParticipantCancelTarget] = useState(null); // { participantId, bookingId, fullName }
+    const [participantCancelReason, setParticipantCancelReason] = useState('');
+    const [participantCancelling, setParticipantCancelling] = useState(false);
+
     /* Status update loading */
     const [updatingId, setUpdatingId] = useState(null);
 
@@ -135,7 +154,7 @@ export default function StaffTours() {
             .catch(() => {});
     }, []);
 
-    const fetchSchedules = useCallback(async (p = 1) => {
+    const fetchPage = useCallback(async (p) => {
         setLoading(true);
         try {
             const params = { tourId: filterTour, status: filterStatus, page: p, limit: 12 };
@@ -155,8 +174,30 @@ export default function StaffTours() {
     }, [filterTour, filterStatus, filterMonth, filterYear, useMonthFilter]);
 
     useEffect(() => {
-        fetchSchedules(1);
-    }, [fetchSchedules]);
+        let cancelled = false;
+        const run = async () => {
+            setLoading(true);
+            try {
+                const params = { tourId: filterTour, status: filterStatus, page: 1, limit: 12 };
+                if (useMonthFilter) { params.month = filterMonth; params.year = filterYear; }
+                const res = await getAllSchedules(params);
+                if (cancelled) return;
+                if (res.success) {
+                    setSchedules(res.data || []);
+                    setPage(res.page || 1);
+                    setTotalPages(res.totalPages || 1);
+                    setTotal(res.total || 0);
+                }
+            } catch (err) {
+                if (!cancelled) toast.error('Lỗi tải danh sách: ' + (err.response?.data?.message || err.message));
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        run();
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterTour, filterStatus, filterMonth, filterYear, useMonthFilter]);
 
     /* Cập nhật trạng thái lịch */
     const handleStatusChange = async (scheduleId, newStatus) => {
@@ -183,6 +224,8 @@ export default function StaffTours() {
         setBookingDialog(schedule);
         setBookings([]);
         setBookingLoading(true);
+        setExpandedBookingId(null);
+        setParticipantsMap({});
         try {
             const res = await getAllBookings({ scheduleId: schedule._id, limit: 50 });
             setBookings(res?.data || []);
@@ -190,6 +233,64 @@ export default function StaffTours() {
             toast.error('Lỗi tải booking: ' + (err.response?.data?.message || err.message));
         } finally {
             setBookingLoading(false);
+        }
+    };
+
+    /* Participant status handlers */
+    const handleParticipantComplete = async (participant, bookingId) => {
+        setParticipantUpdating(participant._id);
+        try {
+            const res = await updateParticipant(participant._id, { status: 'completed' });
+            if (res.success) {
+                setParticipantsMap((prev) => ({
+                    ...prev,
+                    [bookingId]: prev[bookingId].map((p) =>
+                        p._id === participant._id ? { ...p, status: 'completed' } : p
+                    ),
+                }));
+                toast.success(`Đã hoàn thành phục vụ: ${participant.fullName}`);
+                setCertModalParticipant({ _id: participant._id, fullName: participant.fullName });
+            } else {
+                toast.error(res.message || 'Cập nhật thất bại');
+            }
+        } catch (err) {
+            toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setParticipantUpdating(null);
+        }
+    };
+
+    const openParticipantCancelDialog = (participant, bookingId) => {
+        setParticipantCancelTarget({ participantId: participant._id, bookingId, fullName: participant.fullName });
+        setParticipantCancelReason('');
+    };
+
+    const handleParticipantConfirmCancel = async () => {
+        if (!participantCancelTarget) return;
+        setParticipantCancelling(true);
+        try {
+            const res = await updateParticipant(participantCancelTarget.participantId, {
+                status: 'cancelled',
+                cancelReason: participantCancelReason,
+            });
+            if (res.success) {
+                setParticipantsMap((prev) => ({
+                    ...prev,
+                    [participantCancelTarget.bookingId]: prev[participantCancelTarget.bookingId].map((p) =>
+                        p._id === participantCancelTarget.participantId
+                            ? { ...p, status: 'cancelled', cancelReason: participantCancelReason }
+                            : p
+                    ),
+                }));
+                toast.success(`Đã ngưng phục vụ: ${participantCancelTarget.fullName}`);
+                setParticipantCancelTarget(null);
+            } else {
+                toast.error(res.message || 'Thao tác thất bại');
+            }
+        } catch (err) {
+            toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setParticipantCancelling(false);
         }
     };
 
@@ -210,6 +311,25 @@ export default function StaffTours() {
             toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
         } finally {
             setCompleting(null);
+        }
+    };
+
+    /* Toggle danh sách người đi của booking */
+    const toggleParticipants = async (bookingId) => {
+        if (expandedBookingId === bookingId) {
+            setExpandedBookingId(null);
+            return;
+        }
+        setExpandedBookingId(bookingId);
+        if (participantsMap[bookingId]) return; // đã cache
+        setParticipantsLoading(bookingId);
+        try {
+            const res = await getParticipantsByBookingId(bookingId);
+            setParticipantsMap((prev) => ({ ...prev, [bookingId]: res?.data || [] }));
+        } catch {
+            setParticipantsMap((prev) => ({ ...prev, [bookingId]: [] }));
+        } finally {
+            setParticipantsLoading(null);
         }
     };
 
@@ -304,7 +424,7 @@ export default function StaffTours() {
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                     <TextField
                         size="small" select label="Tour" value={filterTour}
-                        onChange={(e) => { setFilterTour(e.target.value); setPage(1); }}
+                        onChange={(e) => setFilterTour(e.target.value)}
                         sx={{ minWidth: 220, bgcolor: 'white' }}
                     >
                         <MenuItem value="all">Tất cả tour</MenuItem>
@@ -317,7 +437,7 @@ export default function StaffTours() {
 
                     <TextField
                         size="small" select label="Trạng thái" value={filterStatus}
-                        onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+                        onChange={(e) => setFilterStatus(e.target.value)}
                         sx={{ minWidth: 160, bgcolor: 'white' }}
                     >
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -490,7 +610,7 @@ export default function StaffTours() {
                             <Pagination
                                 count={totalPages}
                                 page={page}
-                                onChange={(_, v) => { setPage(v); fetchSchedules(v); }}
+                                onChange={(_, v) => fetchPage(v)}
                                 color="primary"
                             />
                         </Box>
@@ -501,10 +621,10 @@ export default function StaffTours() {
             {/* ── Dialog: Danh sách booking theo lịch ── */}
             <Dialog
                 open={Boolean(bookingDialog)}
-                onClose={() => setBookingDialog(null)}
-                maxWidth="md"
+                onClose={() => { setBookingDialog(null); setExpandedBookingId(null); setParticipantsMap({}); }}
+                maxWidth="xl"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: 3 } }}
+                PaperProps={{ sx: { borderRadius: 3, maxHeight: '90vh' } }}
             >
                 <DialogTitle sx={{ borderBottom: '1px solid #eee', pb: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -518,13 +638,13 @@ export default function StaffTours() {
                                 {bookingDialog?.bookedSlots}/{bookingDialog?.capacity} chỗ
                             </Typography>
                         </Box>
-                        <IconButton onClick={() => setBookingDialog(null)} size="small">
+                        <IconButton onClick={() => { setBookingDialog(null); setExpandedBookingId(null); setParticipantsMap({}); }} size="small">
                             <CloseIcon />
                         </IconButton>
                     </Box>
                 </DialogTitle>
 
-                <DialogContent sx={{ pt: 2, pb: 3 }}>
+                <DialogContent sx={{ pt: 2, pb: 3, overflow: 'auto' }}>
                     {bookingLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                             <CircularProgress sx={{ color: '#2b6f56' }} />
@@ -538,6 +658,7 @@ export default function StaffTours() {
                             <Table size="small">
                                 <TableHead sx={{ bgcolor: '#f1f5f9' }}>
                                     <TableRow>
+                                        <TableCell sx={{ width: 40 }} />
                                         <TableCell sx={{ fontWeight: 700 }}>Mã Booking</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Khách hàng</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Liên hệ</TableCell>
@@ -552,86 +673,216 @@ export default function StaffTours() {
                                         const bStatus = BOOKING_STATUS[b.status] || { label: b.status, color: 'default' };
                                         const canAct = b.status === 'HOLD' || b.status === 'CONFIRMED';
                                         const isCompleting = completing === b._id;
+                                        const isExpanded = expandedBookingId === b._id;
+                                        const isLoadingP = participantsLoading === b._id;
+                                        const participants = participantsMap[b._id] || [];
                                         return (
-                                            <TableRow key={b._id} hover>
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight={700} color="primary.main">
-                                                        {b.bookingCode}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight={600}>
-                                                        {b.contactInfo?.fullName || '—'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2">{b.contactInfo?.phone || '—'}</Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {b.contactInfo?.email || ''}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    <Typography fontWeight={600}>{b.totalGuests}</Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2" fontWeight={600} color="success.dark">
-                                                        {fmtMoney(b.totalPrice)}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Box>
-                                                        <Chip
-                                                            label={bStatus.label}
-                                                            size="small"
-                                                            color={bStatus.color}
-                                                            sx={{ fontWeight: 600 }}
-                                                        />
-                                                        {b.status === 'CANCELLED' && b.cancelReason && (
-                                                            <Tooltip title={`Lý do: ${b.cancelReason}`} arrow>
-                                                                <Typography
-                                                                    variant="caption"
-                                                                    color="text.secondary"
-                                                                    display="block"
-                                                                    noWrap
-                                                                    sx={{ maxWidth: 120, cursor: 'help', mt: 0.3 }}
-                                                                >
-                                                                    {b.cancelReason}
-                                                                </Typography>
-                                                            </Tooltip>
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    {canAct ? (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Hoàn thành">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="success"
-                                                                    onClick={() => handleComplete(b)}
-                                                                    disabled={isCompleting}
-                                                                >
-                                                                    {isCompleting
-                                                                        ? <CircularProgress size={16} color="success" />
-                                                                        : <TaskAltIcon fontSize="small" />
-                                                                    }
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Dừng phục vụ">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    color="error"
-                                                                    onClick={() => openCancelDialog(b)}
-                                                                >
-                                                                    <BlockIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                            <React.Fragment key={b._id}>
+                                                <TableRow hover>
+                                                    <TableCell>
+                                                        <Tooltip title={isExpanded ? 'Ẩn danh sách người đi' : 'Xem danh sách người đi'}>
+                                                            <IconButton size="small" onClick={() => toggleParticipants(b._id)}>
+                                                                {isLoadingP
+                                                                    ? <CircularProgress size={16} />
+                                                                    : isExpanded
+                                                                        ? <KeyboardArrowUpIcon fontSize="small" />
+                                                                        : <KeyboardArrowDownIcon fontSize="small" />
+                                                                }
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={700} color="primary.main">
+                                                            {b.bookingCode}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>
+                                                            {b.contactInfo?.fullName || '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">{b.contactInfo?.phone || '—'}</Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {b.contactInfo?.email || ''}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography fontWeight={600}>{b.totalGuests}</Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2" fontWeight={600} color="success.dark">
+                                                            {fmtMoney(b.totalPrice)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Box>
+                                                            <Chip
+                                                                label={bStatus.label}
+                                                                size="small"
+                                                                color={bStatus.color}
+                                                                sx={{ fontWeight: 600 }}
+                                                            />
+                                                            {b.status === 'CANCELLED' && b.cancelReason && (
+                                                                <Tooltip title={`Lý do: ${b.cancelReason}`} arrow>
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        color="text.secondary"
+                                                                        display="block"
+                                                                        noWrap
+                                                                        sx={{ maxWidth: 120, cursor: 'help', mt: 0.3 }}
+                                                                    >
+                                                                        {b.cancelReason}
+                                                                    </Typography>
+                                                                </Tooltip>
+                                                            )}
                                                         </Box>
-                                                    ) : (
-                                                        <Typography variant="caption" color="text.disabled">—</Typography>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        {canAct ? (
+                                                            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                                <Tooltip title="Hoàn thành">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        color="success"
+                                                                        onClick={() => handleComplete(b)}
+                                                                        disabled={isCompleting}
+                                                                    >
+                                                                        {isCompleting
+                                                                            ? <CircularProgress size={16} color="success" />
+                                                                            : <TaskAltIcon fontSize="small" />
+                                                                        }
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                                <Tooltip title="Dừng phục vụ">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        color="error"
+                                                                        onClick={() => openCancelDialog(b)}
+                                                                    >
+                                                                        <BlockIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </Box>
+                                                        ) : (
+                                                            <Typography variant="caption" color="text.disabled">—</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+
+                                                {/* Sub-row: danh sách người đi */}
+                                                <TableRow>
+                                                    <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+                                                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                                                            <Box sx={{ m: 1, ml: 4, mb: 1.5 }}>
+                                                                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                                                                    DANH SÁCH NGƯỜI ĐI — {b.bookingCode} ({participants.length} người)
+                                                                </Typography>
+                                                                {participants.length === 0 ? (
+                                                                    <Typography variant="caption" color="text.disabled">
+                                                                        Chưa có thông tin người đi.
+                                                                    </Typography>
+                                                                ) : (
+                                                                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                                                        <Table size="small">
+                                                                            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                                                                <TableRow>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>#</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Họ tên</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Ngày sinh</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Giới tính</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>CMND/Hộ chiếu</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Quốc tịch</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Thể lực</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Chế độ ăn</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }}>Trạng thái</TableCell>
+                                                                                    <TableCell sx={{ fontWeight: 600, py: 0.8 }} align="center">Hành động</TableCell>
+                                                                                </TableRow>
+                                                                            </TableHead>
+                                                                            <TableBody>
+                                                                                {participants.map((p, idx) => {
+                                                                                    const isUpdating = participantUpdating === p._id;
+                                                                                    const canActP = !p.status || p.status === 'active';
+                                                                                    return (
+                                                                                    <TableRow key={p._id} hover>
+                                                                                        <TableCell sx={{ py: 0.8 }}>{idx + 1}</TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2" fontWeight={600}>{p.fullName}</Typography>
+                                                                                            {p.phone && (
+                                                                                                <Typography variant="caption" color="text.secondary" display="block">{p.phone}</Typography>
+                                                                                            )}
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2">{fmt(p.dob)}</Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2">
+                                                                                                {p.gender === 'Male' ? 'Nam' : p.gender === 'Female' ? 'Nữ' : 'Khác'}
+                                                                                            </Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2" fontFamily="monospace">{p.passportOrId}</Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2">{p.nationality}</Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2">{p.healthSurvey?.fitnessLevel || '—'}</Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            <Typography variant="body2">
+                                                                                                {p.preferences?.dietaryPreference === 'None' ? '—' : (p.preferences?.dietaryPreference || '—')}
+                                                                                            </Typography>
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }}>
+                                                                                            {p.status === 'completed' && (
+                                                                                                <Chip label="Hoàn thành" size="small" color="success" sx={{ fontWeight: 600 }} />
+                                                                                            )}
+                                                                                            {p.status === 'cancelled' && (
+                                                                                                <Tooltip title={p.cancelReason ? `Lý do: ${p.cancelReason}` : ''} arrow>
+                                                                                                    <Chip label="Ngưng phục vụ" size="small" color="error" sx={{ fontWeight: 600, cursor: p.cancelReason ? 'help' : 'default' }} />
+                                                                                                </Tooltip>
+                                                                                            )}
+                                                                                            {(p.status === 'active' || !p.status) && (
+                                                                                                <Chip label="Đang phục vụ" size="small" color="info" sx={{ fontWeight: 600 }} />
+                                                                                            )}
+                                                                                        </TableCell>
+                                                                                        <TableCell sx={{ py: 0.8 }} align="center">
+                                                                                            {canActP ? (
+                                                                                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                                                                    <Tooltip title="Hoàn thành">
+                                                                                                        <IconButton size="small" color="success" onClick={() => handleParticipantComplete(p, b._id)} disabled={isUpdating}>
+                                                                                                            {isUpdating ? <CircularProgress size={14} color="success" /> : <TaskAltIcon fontSize="small" />}
+                                                                                                        </IconButton>
+                                                                                                    </Tooltip>
+                                                                                                    <Tooltip title="Ngưng phục vụ">
+                                                                                                        <IconButton size="small" color="error" onClick={() => openParticipantCancelDialog(p, b._id)} disabled={isUpdating}>
+                                                                                                            <BlockIcon fontSize="small" />
+                                                                                                        </IconButton>
+                                                                                                    </Tooltip>
+                                                                                                </Box>
+                                                                                            ) : p.status === 'completed' ? (
+                                                                                                <Tooltip title="Xem chứng chỉ">
+                                                                                                    <IconButton size="small" sx={{ color: '#c9a227' }} onClick={() => setCertModalParticipant({ _id: p._id, fullName: p.fullName })}>
+                                                                                                        <WorkspacePremiumIcon fontSize="small" />
+                                                                                                    </IconButton>
+                                                                                                </Tooltip>
+                                                                                            ) : (
+                                                                                                <Typography variant="caption" color="text.disabled">—</Typography>
+                                                                                            )}
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                    );
+                                                                                })}
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </TableContainer>
+                                                                )}
+                                                            </Box>
+                                                        </Collapse>
+                                                    </TableCell>
+                                                </TableRow>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </TableBody>
@@ -663,6 +914,57 @@ export default function StaffTours() {
                         </Box>
                     )}
                 </DialogContent>
+            </Dialog>
+
+            {/* ── Dialog: Ngưng phục vụ hành khách ── */}
+            <Dialog
+                open={Boolean(participantCancelTarget)}
+                onClose={() => !participantCancelling && setParticipantCancelTarget(null)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 3 } }}
+            >
+                <DialogTitle sx={{ borderBottom: '1px solid #eee', pb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BlockIcon color="error" />
+                    <Box>
+                        <Typography fontWeight={700}>Ngưng phục vụ hành khách</Typography>
+                        <Typography variant="body2" color="text.secondary">{participantCancelTarget?.fullName}</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 2.5, pb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Hành khách sẽ được đánh dấu <strong>Ngưng phục vụ</strong>. Vui lòng nhập lý do.
+                    </Typography>
+                    <TextField
+                        fullWidth multiline rows={3}
+                        label="Lý do ngưng phục vụ"
+                        placeholder="Ví dụ: không đủ điều kiện sức khỏe, từ chối tham gia..."
+                        value={participantCancelReason}
+                        onChange={(e) => setParticipantCancelReason(e.target.value)}
+                        required
+                        error={!participantCancelReason.trim()}
+                        helperText={!participantCancelReason.trim() ? 'Vui lòng nhập lý do' : ' '}
+                        inputProps={{ maxLength: 300 }}
+                    />
+                    <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'right', mt: -1 }}>
+                        {participantCancelReason.length}/300
+                    </Typography>
+                </DialogContent>
+                <Divider />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 3, py: 2 }}>
+                    <Button variant="outlined" onClick={() => setParticipantCancelTarget(null)} disabled={participantCancelling} sx={{ textTransform: 'none', borderRadius: 2 }}>
+                        Hủy bỏ
+                    </Button>
+                    <Button
+                        variant="contained" color="error"
+                        onClick={handleParticipantConfirmCancel}
+                        disabled={participantCancelling || !participantCancelReason.trim()}
+                        startIcon={participantCancelling ? <CircularProgress size={16} color="inherit" /> : <BlockIcon />}
+                        sx={{ textTransform: 'none', borderRadius: 2 }}
+                    >
+                        {participantCancelling ? 'Đang xử lý...' : 'Xác nhận'}
+                    </Button>
+                </Box>
             </Dialog>
 
             {/* ── Dialog: Dừng phục vụ — nhập lý do ── */}
@@ -726,6 +1028,14 @@ export default function StaffTours() {
                     </Button>
                 </Box>
             </Dialog>
+
+            {/* Certificate modal */}
+            <CertificateModal
+                open={!!certModalParticipant}
+                onClose={() => setCertModalParticipant(null)}
+                participantId={certModalParticipant?._id}
+                participantName={certModalParticipant?.fullName}
+            />
         </Box>
     );
 }
